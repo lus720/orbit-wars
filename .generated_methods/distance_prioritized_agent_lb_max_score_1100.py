@@ -1,3 +1,4 @@
+
 import math
 import time
 from collections import defaultdict, namedtuple
@@ -33,10 +34,6 @@ SAFE_OPENING_PROD_THRESHOLD = 4
 SAFE_OPENING_TURN_LIMIT = 10
 ROTATING_OPENING_MAX_TURNS = 13
 ROTATING_OPENING_LOW_PROD = 2
-TWO_PLAYER_ROTATING_OPENING_MAX_TURNS = 18
-TWO_PLAYER_ROTATING_REACTION_SLACK = 1
-TWO_PLAYER_OPENING_WAIT_TURNS = 4
-TWO_PLAYER_OPENING_COMMIT_TURN = 10
 FOUR_PLAYER_ROTATING_REACTION_GAP = 3
 FOUR_PLAYER_ROTATING_SEND_RATIO = 0.62
 FOUR_PLAYER_ROTATING_TURN_LIMIT = 10
@@ -72,9 +69,9 @@ NEUTRAL_MARGIN_CAP = 8
 HOSTILE_MARGIN_BASE = 3
 HOSTILE_MARGIN_PROD_WEIGHT = 2
 HOSTILE_MARGIN_CAP = 12
-HOSTILE_REINFORCE_HORIZON = 8
-HOSTILE_REINFORCE_RATIO = 0.25
-HOSTILE_REINFORCE_CAP = 15
+HOSTILE_REINFORCE_HORIZON = 8       # look for enemy reinforcements within this many turns after arrival
+HOSTILE_REINFORCE_RATIO = 0.25      # add 25% of estimated enemy reinforcement as margin
+HOSTILE_REINFORCE_CAP = 15          # cap reinforcement margin
 STATIC_TARGET_MARGIN = 4
 CONTESTED_TARGET_MARGIN = 5
 FOUR_PLAYER_TARGET_MARGIN = 3
@@ -787,6 +784,38 @@ class WorldModel:
         )
         self.total_production = sum(int(planet.production) for planet in planets)
 
+        # Per-opponent proximity analysis (distance-first, strength-tiebreaker)
+        self.opp_planets = defaultdict(list)
+        for p in self.enemy_planets:
+            self.opp_planets[p.owner].append(p)
+        self.opp_min_dist = {}
+        for opp_id, opp_ps in self.opp_planets.items():
+            min_d = 1e9
+            for mp in self.my_planets:
+                for ep in opp_ps:
+                    d = dist(mp.x, mp.y, ep.x, ep.y)
+                    if d < min_d:
+                        min_d = d
+            self.opp_min_dist[opp_id] = min_d
+
+    def opponent_priority(self, opp_id):
+        """Multiplier for attacking this opponent. Nearby opponents get higher priority."""
+        if not self.opp_min_dist:
+            return 1.0
+        my_dist = self.opp_min_dist.get(opp_id, 999)
+        all_dists = list(self.opp_min_dist.values())
+        min_d = min(all_dists)
+        max_d = max(all_dists)
+        dist_range = max(1, max_d - min_d)
+        norm = (my_dist - min_d) / dist_range  # 0 = closest, 1 = farthest
+        proximity_score = 1.25 - 0.7 * norm  # closest=1.25, farthest=0.55
+        # Tiebreaker: when distances are similar (<15), strength matters
+        total_str = sum(self.owner_strength.get(o, 0) for o in self.opp_min_dist) or 1
+        strength_share = self.owner_strength.get(opp_id, 0) / total_str
+        similar = sum(1 for d in all_dists if abs(d - my_dist) < 15)
+        bonus = strength_share * (0.25 if similar > 1 else 0.05)
+        return max(0.5, proximity_score + bonus)
+
     def is_static(self, planet_id):
         return is_static_planet(self.planet_by_id[planet_id])
 
@@ -1262,86 +1291,6 @@ def swarm_eta_tolerance(options, target, world):
     return MULTI_SOURCE_ETA_TOLERANCE
 
 
-def build_two_player_opening_anchor(world):
-    if world.is_four_player or world.step > TWO_PLAYER_OPENING_COMMIT_TURN:
-        return None
-    if len(world.my_planets) != 1:
-        return None
-    if any(fleet.owner == world.player for fleet in world.fleets):
-        return None
-
-    src = world.my_planets[0]
-    if src.production >= SAFE_OPENING_PROD_THRESHOLD:
-        return None
-    growth_window = max(0, TWO_PLAYER_OPENING_WAIT_TURNS - world.step)
-    future_budget = int(src.ships + growth_window * src.production)
-    if future_budget <= 0:
-        return None
-
-    best_overall = None
-    best_now = None
-
-    for target in world.neutral_planets:
-        seeded = world.best_probe_aim(
-            src.id,
-            target.id,
-            future_budget,
-            hints=(int(target.ships) + 1, int(target.ships) + target.production),
-        )
-        if seeded is None:
-            continue
-        probe, aim = seeded
-        angle, turns, _dist_to_target, _path_target = aim
-        if turns > TWO_PLAYER_ROTATING_OPENING_MAX_TURNS:
-            continue
-        if target.id in world.comet_ids:
-            continue
-        if not world.is_static(target.id) and target.production <= ROTATING_OPENING_LOW_PROD:
-            continue
-
-        need = world.min_ships_to_own_at(
-            target.id,
-            turns,
-            world.player,
-            upper_bound=future_budget,
-        )
-        if need <= 0 or need > future_budget:
-            continue
-
-        # Opening anchor: prefer high production that comes online quickly,
-        # even if that means waiting a few turns before the first launch.
-        score = (
-            target.production * target.production * max(1, world.remaining_steps - turns)
-        ) / (need + turns * 3.0 + 1.0)
-        if world.is_static(target.id):
-            score *= 1.08
-
-        candidate = {
-            "target_id": target.id,
-            "angle": angle,
-            "turns": turns,
-            "need": need,
-            "score": score,
-        }
-        if best_overall is None or score > best_overall["score"]:
-            best_overall = candidate
-        if need <= int(src.ships):
-            if best_now is None or score > best_now["score"]:
-                best_now = candidate
-
-    if best_overall is None:
-        return None
-    if best_overall["need"] <= int(src.ships):
-        return [[src.id, best_overall["angle"], best_overall["need"]]]
-    if best_now is None:
-        return []
-
-    if best_overall["score"] >= best_now["score"] * 1.18:
-        return []
-
-    return [[src.id, best_now["angle"], best_now["need"]]]
-
-
 def detect_enemy_crashes(world):
     crashes = []
     for target_id, arrivals in world.arrivals_by_planet.items():
@@ -1419,23 +1368,6 @@ def build_policy_state(world, deadline=None):
             )
         proactive_keep = max(proactive_keep, stacked_enemy_proactive_keep(planet, world))
 
-        # In 1v1 openings, speculative defense is often slower than simply
-        # taking more production. Keep proactive reserve only when an actual
-        # enemy fleet is already heading here; otherwise rely on exact known
-        # commitments and spend the rest on expansion.
-        if (
-            not world.is_four_player
-            and world.is_opening
-            and len(world.my_planets) == 1
-            and world.my_planets[0].production < SAFE_OPENING_PROD_THRESHOLD
-        ):
-            has_real_threat = any(
-                owner not in (-1, world.player) and ships > 0
-                for _eta, owner, ships in world.arrivals_by_planet.get(planet.id, [])
-            )
-            if not has_real_threat:
-                proactive_keep = 0
-
         reserve[planet.id] = min(int(planet.ships), max(exact_keep, proactive_keep))
         attack_budget[planet.id] = max(0, int(planet.ships) - reserve[planet.id])
 
@@ -1509,26 +1441,6 @@ def opening_filter(target, arrival_turns, needed, src_available, world, policy):
     ):
         return False
 
-    if not world.is_four_player:
-        affordable = needed <= max(
-            PARTIAL_SOURCE_MIN_SHIPS,
-            int(src_available * 0.78),
-        )
-        if (
-            affordable
-            and arrival_turns <= TWO_PLAYER_ROTATING_OPENING_MAX_TURNS
-            and reaction_gap >= -TWO_PLAYER_ROTATING_REACTION_SLACK
-            and target.production >= ROTATING_OPENING_LOW_PROD
-        ):
-            return False
-        return (
-            arrival_turns > TWO_PLAYER_ROTATING_OPENING_MAX_TURNS
-            or (
-                reaction_gap < -TWO_PLAYER_ROTATING_REACTION_SLACK
-                and target.production <= ROTATING_OPENING_LOW_PROD
-            )
-        )
-
     if world.is_four_player:
         affordable = needed <= max(
             PARTIAL_SOURCE_MIN_SHIPS,
@@ -1562,9 +1474,10 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
         value *= ROTATING_OPENING_VALUE_MULT if world.is_opening else 1.0
 
     if target.owner not in (-1, world.player):
-        value *= OPENING_HOSTILE_TARGET_VALUE_MULT if world.is_opening else HOSTILE_TARGET_VALUE_MULT
-        if not world.is_four_player:
-            value *= 1.30
+        base_mult = OPENING_HOSTILE_TARGET_VALUE_MULT if world.is_opening else HOSTILE_TARGET_VALUE_MULT
+        # Prioritize nearest opponent (proximity-first, strength-tiebreaker)
+        opp_priority = world.opponent_priority(target.owner)
+        value *= base_mult * opp_priority
 
     if target.owner == -1:
         if is_safe_neutral(target, policy):
@@ -1627,24 +1540,25 @@ def preferred_send(target, base_needed, arrival_turns, src_available, world, mod
             HOSTILE_MARGIN_CAP,
             HOSTILE_MARGIN_BASE + target.production * HOSTILE_MARGIN_PROD_WEIGHT,
         )
+        # Estimate enemy reinforcement potential: how many ships could the
+        # target's owner send to reinforce within a short window after we arrive?
+        # This makes us send bigger fleets against well-supported enemy planets.
         reinforce_est = 0
-        for enemy_planet in world.enemy_planets:
-            if enemy_planet.owner != target.owner or enemy_planet.id == target.id:
+        for ep in world.opp_planets.get(target.owner, []):
+            if ep.id == target.id:
                 continue
-            enemy_aim = world.plan_shot(
-                enemy_planet.id,
-                target.id,
-                max(1, int(enemy_planet.ships)),
-            )
-            if enemy_aim is None:
+            ep_aim = world.plan_shot(ep.id, target.id, max(1, int(ep.ships)))
+            if ep_aim is None:
                 continue
-            enemy_eta = enemy_aim[1]
-            if enemy_eta <= arrival_turns + HOSTILE_REINFORCE_HORIZON:
-                reinforce_est += max(0, int(enemy_planet.ships) - 3)
-        margin += min(
-            HOSTILE_REINFORCE_CAP,
-            int(reinforce_est * HOSTILE_REINFORCE_RATIO),
-        )
+            ep_eta = ep_aim[1]
+            # Enemy sees our fleet and dispatches reinforcement immediately.
+            # If their reinforcement arrives within HOSTILE_REINFORCE_HORIZON
+            # turns after our arrival, they can counterattack our weakened garrison.
+            if ep_eta <= arrival_turns + HOSTILE_REINFORCE_HORIZON:
+                sendable = max(0, int(ep.ships) - 3)  # they keep a small garrison
+                reinforce_est += sendable
+        reinforce_margin = min(HOSTILE_REINFORCE_CAP, int(reinforce_est * HOSTILE_REINFORCE_RATIO))
+        margin += reinforce_margin
     if world.is_static(target.id):
         margin += STATIC_TARGET_MARGIN
     if is_contested_neutral(target, policy):
@@ -2359,10 +2273,6 @@ def build_crash_exploit_missions(world, policy, planned_commitments, modes):
 
 
 def plan_moves(world, deadline=None):
-    opening_anchor = build_two_player_opening_anchor(world)
-    if opening_anchor is not None:
-        return opening_anchor
-
     def expired():
         return deadline is not None and time.perf_counter() > deadline
 
@@ -2986,26 +2896,6 @@ def plan_moves(world, deadline=None):
             src_left = source_attack_left(src.id)
             if need > src_left:
                 continue
-
-            if not world.is_four_player and src_left >= FOLLOWUP_MIN_SHIPS * 2:
-                src_enemy_gap = (
-                    nearest_distance_to_set(src.x, src.y, world.enemy_planets)
-                    if world.enemy_planets
-                    else 10**9
-                )
-                target_enemy_gap = (
-                    nearest_distance_to_set(target.x, target.y, world.enemy_planets)
-                    if world.enemy_planets
-                    else src_enemy_gap
-                )
-                if (
-                    target.owner not in (-1, world.player)
-                    or (
-                        target.production >= 3
-                        and target_enemy_gap <= src_enemy_gap + 8
-                    )
-                ):
-                    send = max(send, int(src_left * 0.72))
 
             plan = settle_plan(
                 src,

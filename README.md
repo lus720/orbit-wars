@@ -1,13 +1,13 @@
 # Orbit Wars Agent
 
-这是一个用于 Kaggle `Orbit Wars` 比赛的本地方案目录，当前主要文件有：
-
-- [main.py](/home/ls/kaggle/main.py): 可直接提交的 agent
-- [orbit-wars-solution.ipynb](/home/ls/kaggle/orbit-wars-solution.ipynb): 讲解版 notebook
-- [STRATEGY.md](/home/ls/kaggle/STRATEGY.md): 详细规则、策略与命令说明
-- [getting-started.ipynb](/home/ls/kaggle/getting-started.ipynb): 参考示例
-
 ## 快速开始
+
+
+
+
+
+
+
 
 ### 3. 提交到 Kaggle
 

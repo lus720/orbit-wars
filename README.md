@@ -9,41 +9,10 @@
 
 ## 快速开始
 
-### 1. 在本地 kaggle conda 环境里跑一次 agent
-
-```bash
-/home/ls/miniconda3/envs/kaggle/bin/python - <<'PY'
-from kaggle_environments import make
-from main import smart_agent
-
-env = make("orbit_wars", debug=True)
-env.run([smart_agent, "starter"])
-print(env.steps[-1][0].reward)
-PY
-```
-
-### 2. 顺序执行讲解 notebook
-
-```bash
-/home/ls/miniconda3/envs/kaggle/bin/python - <<'PY'
-import json
-from pathlib import Path
-
-nb = json.loads(Path('orbit-wars-solution.ipynb').read_text())
-ctx = {'__name__': '__main__'}
-for idx, cell in enumerate(nb['cells']):
-    if cell.get('cell_type') != 'code':
-        continue
-    code = ''.join(cell.get('source', []))
-    print(f'>>> executing cell {idx}')
-    exec(compile(code, f'orbit-wars-solution.ipynb:cell_{idx}', 'exec'), ctx)
-PY
-```
-
 ### 3. 提交到 Kaggle
 
 ```bash
-/home/ls/miniconda3/envs/kaggle/bin/kaggle competitions submit -c orbit-wars -f /home/ls/kaggle/main.py -m "submit smart_agent"
+kaggle competitions submit -c orbit-wars -f main.py -m "submit smart_agent"
 ```
 
 ### 4. 查询提交状态
@@ -57,35 +26,6 @@ PY
 ```bash
 curl -L 'https://www.kaggle.com/api/v1/competitions/orbit-wars/pages'
 ```
-
-## 当前策略摘要
-
-当前 `main.py` 采用的是一个更直接的两阶段策略：
-
-- 前 30 回合优先占领附近、能最快拿下的星球
-- 30 回合后主要分析当前其它舰队
-- 如果己方星球可能被攻下，就优先支援己方星球
-- 如果别人的舰队会把某颗星球打残，就尽量在那个时间窗口把它接手
-- 如果没有明显抢残血机会，就继续占领较近的星球
-
-相比 starter 风格策略，它最大的提升点在于：
-
-- 前期扩张目标更直接
-- 中后期会利用其它玩家已经发出的舰队
-- 会提前判断己方星球是否可能被在途舰队打掉
-
-## 规则摘要
-
-`Orbit Wars` 的关键规则可以快速记成下面几条：
-
-- 动作格式是 `[from_planet_id, angle_in_radians, num_ships]`
-- 回合顺序是：发射 -> 生产 -> 移动 -> 行星/彗星移动 -> 战斗
-- 内圈星球会旋转，外圈星球静止
-- 舰队速度和舰船数量相关
-- 舰队路径穿过太阳会被销毁
-- 敌方星球在你到达前会继续产兵
-
-这些规则直接决定了当前策略为什么要做“速度估计 + 未来位置预测 + 避开太阳 + 到达时兵力估算”。
 
 ## 相关命令
 

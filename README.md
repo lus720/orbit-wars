@@ -1,6 +1,8 @@
 # Orbit Wars Agent
 
-## 快速开始
+conda activate kaggle
+
+## 服务器
 
 
 
@@ -27,9 +29,31 @@ kaggle competitions submit -c orbit-wars -f main.py -m "submit smart_agent"
 curl -L 'https://www.kaggle.com/api/v1/competitions/orbit-wars/pages'
 ```
 
+## 安装依赖
+
+安装本项目训练、评估、回放和 Notebook 常用的 Python 库：
+
+```bash
+python -m pip install -U pip numpy pyyaml torch kaggle-environments kaggle jupyter ipykernel
+```
+
+如果你使用的是当前 conda 环境，也可以显式指定 Python：
+
+```bash
+/home/ls/miniconda3/envs/kaggle/bin/python -m pip install -U pip numpy pyyaml torch kaggle-environments kaggle jupyter ipykernel
+```
+
 ## 相关命令
 
 这一节尽量记录本项目实际会用到、并且我已经在当前工作流里用过的命令，保证用户可以手动复现。
+
+### 本地训练 PPO
+
+```bash
+/home/ls/miniconda3/envs/kaggle/bin/python -m src.train --config default_cfg.yaml
+```
+
+训练 checkpoint 会保存到 `artifacts/orbit_wars_ppo/`。如果你看到 `PermissionError: [Errno 13] Permission denied: '/kaggle'`，说明配置里的 `save_dir` 指向了 Kaggle Notebook 专用目录；本地运行时应使用类似 `artifacts` 这样的相对路径。
 
 ### 运行前的网络说明
 

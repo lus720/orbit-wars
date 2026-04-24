@@ -1,6 +1,12 @@
 # Orbit Wars Agent
 
+```bash
 conda activate kaggle
+kaggle kernels pull kashiwaba/orbit-wars-reinforcement-learning-tutorial
+pip install numpy pyyaml torch kaggle-environments ipython jupyter ipykernel
+```
+
+
 
 ## 服务器
 

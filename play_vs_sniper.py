@@ -19,9 +19,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.config import TrainConfig, default_train_config_path, load_train_config
-from src.features import TurnBatch, candidate_feature_dim, encode_turn, global_feature_dim, self_feature_dim
+from src.features import candidate_feature_dim, global_feature_dim, self_feature_dim
 from src.policy import PlanetPolicy
-from src.ppo import sample_actions
+from src.search_agent import SearchAgent
 
 Planet = namedtuple("Planet", ["id", "owner", "x", "y", "radius", "ships", "production"])
 
@@ -59,7 +59,10 @@ def build_policy(cfg: TrainConfig, device: torch.device) -> PlanetPolicy:
         candidate_dim=candidate_feature_dim(),
         global_dim=global_feature_dim(),
         candidate_count=cfg.env.candidate_count,
+        ship_option_count=cfg.env.ship_bucket_count,
         hidden_size=cfg.model.hidden_size,
+        noop_logit_bias=cfg.model.noop_logit_bias,
+        heuristic_logit_scale=cfg.model.heuristic_logit_scale,
     ).to(device)
 
 def register_checkpoint_module_aliases() -> None:
@@ -69,7 +72,6 @@ def register_checkpoint_module_aliases() -> None:
         "config": ["src.rl_template.config", "src.config", "config"],
         "features": ["src.rl_template.features", "src.features", "features"],
         "policy": ["src.rl_template.policy", "src.policy", "policy"],
-        "ppo": ["src.rl_template.ppo", "src.ppo", "ppo"],
         "game_types": ["src.rl_template.game_types", "src.game_types", "game_types"],
         "opponents": ["src.rl_template.opponents", "src.opponents", "opponents"],
         "env": ["src.rl_template.env", "src.env", "env"],
@@ -98,33 +100,8 @@ def load_checkpoint_if_available(policy: PlanetPolicy, checkpoint_path: str | No
     policy.load_state_dict(state_dict)
 
 
-def build_moves(batch: TurnBatch, policy: PlanetPolicy, device: torch.device, deterministic: bool) -> list[list[float | int]]:
-    if batch.self_features.shape[0] == 0:
-        return []
-    with torch.inference_mode():
-        outputs = policy(
-            torch.from_numpy(batch.self_features).to(device),
-            torch.from_numpy(batch.candidate_features).to(device),
-            torch.from_numpy(batch.global_features).to(device),
-            torch.from_numpy(batch.candidate_mask).to(device).bool(),
-        )
-        sampled = sample_actions(outputs, deterministic=deterministic)
-    target_indices = sampled.target_index.detach().cpu().numpy()
-
-    moves: list[list[float | int]] = []
-    for row_idx, context in enumerate(batch.contexts):
-        target_idx = int(target_indices[row_idx])
-        if target_idx == 0:
-            continue
-        if target_idx >= len(context.candidate_ids):
-            continue
-        if not context.candidate_mask[target_idx]:
-            continue
-        ships = int(context.ship_counts[target_idx])
-        if ships <= 0:
-            continue
-        moves.append([context.source_id, float(context.target_angles[target_idx]), ships])
-    return moves
+def build_search_agent(policy: PlanetPolicy, cfg: TrainConfig, device: torch.device) -> SearchAgent:
+    return SearchAgent(policy, cfg, device, deterministic=True)
 
 
 def nearest_planet_sniper(obs: Any) -> list[list[float | int]]:
@@ -185,6 +162,7 @@ def run_match(
 ) -> tuple[str, float, int]:
     from kaggle_environments import make
 
+    search_agent = build_search_agent(policy, cfg, device)
     env = make(
         "orbit_wars",
         configuration={"seed": int(seed), "randomSeed": int(seed)},
@@ -198,8 +176,7 @@ def run_match(
     step_count = 0
 
     while not done:
-        batch = encode_turn(player_obs, cfg.env, env_index=0)
-        player_action = build_moves(batch, policy, device, deterministic)
+        player_action = search_agent.act(player_obs) if player_obs else []
         opponent_action = nearest_planet_sniper(opponent_obs)
         states = env.step([player_action, opponent_action])
         player_obs = extract_observation(states[0])

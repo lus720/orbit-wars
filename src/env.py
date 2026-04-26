@@ -6,7 +6,9 @@ from typing import Any
 
 from .config import TrainConfig
 from .features import TurnBatch, encode_turn
+from .game_types import parse_observation
 from .opponents import OpponentPolicy
+from .world_model import WorldModel
 
 
 @dataclass(slots=True)
@@ -47,6 +49,9 @@ class OrbitWarsEnv:
             self.learner_player = 0
         self.env = make_fn("orbit_wars", configuration=configuration, debug=False)
         self.env.reset(num_agents=2)
+        reset_opponent = getattr(self.opponent, "reset", None)
+        if callable(reset_opponent):
+            reset_opponent(seed)
         states = self.env.step([[], []])
         learner_state = states[self.learner_player]
         opponent_state = states[1 - self.learner_player]
@@ -58,6 +63,7 @@ class OrbitWarsEnv:
     def step(self, player_action: list[list[float | int]]) -> StepResult:
         if self.env is None:
             raise RuntimeError("Call reset() before step().")
+        prev_obs = self.last_obs
         opponent_action = self.opponent.act(self.last_opp_obs)
         if self.learner_player == 0:
             joint_action = [player_action, opponent_action]
@@ -69,7 +75,7 @@ class OrbitWarsEnv:
         self.last_obs = extract_observation(player_state)
         self.last_opp_obs = extract_observation(opp_state)
         done = extract_status(player_state) != "ACTIVE"
-        reward = terminal_reward(player_state, opp_state) if done else 0.0
+        reward = compute_reward(self.cfg, prev_obs, self.last_obs, player_state, opp_state, done)
         batch = encode_turn(self.last_obs, self.cfg.env, env_index=self.env_index)
         info = {
             "learner_player": self.learner_player,
@@ -112,3 +118,25 @@ def terminal_reward(player_state: Any, opp_state: Any) -> float:
     if player_reward > 0.0 and opponent_reward > 0.0:
         return 0.0
     return player_reward
+
+
+def compute_reward(
+    cfg: TrainConfig,
+    prev_obs: Any,
+    next_obs: Any,
+    player_state: Any,
+    opp_state: Any,
+    done: bool,
+) -> float:
+    terminal = terminal_reward(player_state, opp_state) if done else 0.0
+    if not cfg.reward.use_shaping or prev_obs is None or next_obs is None:
+        return cfg.reward.terminal_bonus * terminal if done else 0.0
+
+    prev_world = WorldModel(parse_observation(prev_obs), cfg.env)
+    next_world = WorldModel(parse_observation(next_obs), cfg.env)
+    shaping = cfg.reward.alpha * (
+        cfg.reward.gamma * next_world.shaping_potential(cfg.reward) - prev_world.shaping_potential(cfg.reward)
+    )
+    if done:
+        shaping += cfg.reward.terminal_bonus * terminal
+    return float(shaping)

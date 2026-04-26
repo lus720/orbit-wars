@@ -3,37 +3,38 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import math
+import importlib.util
 import random
 import sys
 import types
-from collections import namedtuple
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import torch
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.config import TrainConfig, default_train_config_path, load_train_config
 from src.features import TurnBatch, candidate_feature_dim, encode_turn, global_feature_dim, self_feature_dim
 from src.policy import PlanetPolicy
-from src.ppo import sample_actions
+from src.search_agent import SearchAgent
 
-Planet = namedtuple("Planet", ["id", "owner", "x", "y", "radius", "ships", "production"])
+BaselineAgent = Callable[[Any], list[list[float | int]]]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="")
+    parser = argparse.ArgumentParser(description="Evaluate a checkpoint against every baseline agent.")
     parser.add_argument("--config", type=str, default=str(default_train_config_path()))
     parser.add_argument("--checkpoint", type=str, default=None)
-    parser.add_argument("--games", type=int, default=20)
+    parser.add_argument("--games", type=int, default=10)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--deterministic", action="store_true")
+    parser.add_argument("--baselines-dir", type=str, default="baselines")
+    parser.add_argument("--baseline", action="append", default=None, help="Run only matching baseline names.")
     return parser.parse_args()
 
 
@@ -57,7 +58,10 @@ def build_policy(cfg: TrainConfig, device: torch.device) -> PlanetPolicy:
         candidate_dim=candidate_feature_dim(),
         global_dim=global_feature_dim(),
         candidate_count=cfg.env.candidate_count,
+        ship_option_count=cfg.env.ship_bucket_count,
         hidden_size=cfg.model.hidden_size,
+        noop_logit_bias=cfg.model.noop_logit_bias,
+        heuristic_logit_scale=cfg.model.heuristic_logit_scale,
     ).to(device)
 
 def register_checkpoint_module_aliases() -> None:
@@ -67,7 +71,6 @@ def register_checkpoint_module_aliases() -> None:
         "config": ["src.rl_template.config", "src.config", "config"],
         "features": ["src.rl_template.features", "src.features", "features"],
         "policy": ["src.rl_template.policy", "src.policy", "policy"],
-        "ppo": ["src.rl_template.ppo", "src.ppo", "ppo"],
         "game_types": ["src.rl_template.game_types", "src.game_types", "game_types"],
         "opponents": ["src.rl_template.opponents", "src.opponents", "opponents"],
         "env": ["src.rl_template.env", "src.env", "env"],
@@ -96,60 +99,32 @@ def load_checkpoint_if_available(policy: PlanetPolicy, checkpoint_path: str | No
     policy.load_state_dict(state_dict)
 
 
-def build_moves(batch: TurnBatch, policy: PlanetPolicy, device: torch.device, deterministic: bool) -> list[list[float | int]]:
-    if batch.self_features.shape[0] == 0:
-        return []
-    with torch.inference_mode():
-        outputs = policy(
-            torch.from_numpy(batch.self_features).to(device),
-            torch.from_numpy(batch.candidate_features).to(device),
-            torch.from_numpy(batch.global_features).to(device),
-            torch.from_numpy(batch.candidate_mask).to(device).bool(),
-        )
-        sampled = sample_actions(outputs, deterministic=deterministic)
-    target_indices = sampled.target_index.detach().cpu().numpy()
-
-    moves: list[list[float | int]] = []
-    for row_idx, context in enumerate(batch.contexts):
-        target_idx = int(target_indices[row_idx])
-        if target_idx == 0:
-            continue
-        if target_idx >= len(context.candidate_ids):
-            continue
-        if not context.candidate_mask[target_idx]:
-            continue
-        ships = int(context.ship_counts[target_idx])
-        if ships <= 0:
-            continue
-        moves.append([context.source_id, float(context.target_angles[target_idx]), ships])
-    return moves
+def baseline_name_from_path(path: Path) -> str:
+    return path.stem.replace("-", "_")
 
 
-def nearest_planet_sniper(obs: Any) -> list[list[float | int]]:
-    moves: list[list[float | int]] = []
-    player = obs.get("player", 0) if isinstance(obs, dict) else obs.player
-    raw_planets = obs.get("planets", []) if isinstance(obs, dict) else obs.planets
-    planets = [Planet(*p) for p in raw_planets]
-    my_planets = [p for p in planets if p.owner == player]
-    targets = [p for p in planets if p.owner != player]
-    if not targets:
-        return moves
-    for mine in my_planets:
-        nearest = None
-        min_dist = float("inf")
-        for target in targets:
-            dist = math.hypot(mine.x - target.x, mine.y - target.y)
-            if dist < min_dist:
-                min_dist = dist
-                nearest = target
-        if nearest is None:
-            continue
-        ships_needed = max(nearest.ships + 1, 20)
-        if mine.ships < ships_needed:
-            continue
-        angle = math.atan2(nearest.y - mine.y, nearest.x - mine.x)
-        moves.append([mine.id, angle, ships_needed])
-    return moves
+def discover_baselines(baselines_dir: str | Path, selected_names: list[str] | None = None) -> list[Path]:
+    base_dir = Path(baselines_dir)
+    selected = {name.replace("-", "_") for name in selected_names or []}
+    paths = sorted(path for path in base_dir.glob("*.py") if not path.name.startswith("_"))
+    if selected:
+        paths = [path for path in paths if baseline_name_from_path(path) in selected or path.stem in selected]
+    if not paths:
+        raise FileNotFoundError(f"No baseline agent files found in {base_dir}")
+    return paths
+
+
+def load_baseline_agent(path: Path, game_index: int) -> BaselineAgent:
+    module_name = f"_orbit_wars_baseline_{baseline_name_from_path(path)}_{game_index}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load baseline module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    agent = getattr(module, "agent", None)
+    if agent is None or not callable(agent):
+        raise AttributeError(f"Baseline file does not define callable agent(obs): {path}")
+    return agent
 
 
 def extract_observation(state: Any) -> Any:
@@ -172,16 +147,23 @@ def extract_reward(state: Any) -> float:
     return 0.0 if value is None else float(value)
 
 
+def build_search_agent(policy: PlanetPolicy, cfg: TrainConfig, device: torch.device) -> SearchAgent:
+    return SearchAgent(policy, cfg, device, deterministic=True)
+
+
 def play_one_game(
     cfg: TrainConfig,
     policy: PlanetPolicy,
     device: torch.device,
+    baseline_path: Path,
     *,
     seed: int,
+    game_index: int,
     deterministic: bool,
 ) -> tuple[float, int]:
     from kaggle_environments import make
 
+    search_agent = build_search_agent(policy, cfg, device)
     env = make(
         "orbit_wars",
         configuration={"seed": int(seed), "randomSeed": int(seed)},
@@ -193,11 +175,11 @@ def play_one_game(
     opponent_obs = extract_observation(states[1])
     done = extract_status(states[0]) != "ACTIVE"
     step_count = 0
+    baseline_agent = load_baseline_agent(baseline_path, game_index)
 
     while not done:
-        batch = encode_turn(player_obs, cfg.env, env_index=0)
-        player_action = build_moves(batch, policy, device, deterministic)
-        opponent_action = nearest_planet_sniper(opponent_obs)
+        player_action = search_agent.act(player_obs) if player_obs else []
+        opponent_action = baseline_agent(opponent_obs)
         states = env.step([player_action, opponent_action])
         player_obs = extract_observation(states[0])
         opponent_obs = extract_observation(states[1])
@@ -224,33 +206,44 @@ def main() -> None:
     policy = build_policy(cfg, device)
     load_checkpoint_if_available(policy, args.checkpoint, device)
     policy.eval()
+    baseline_paths = discover_baselines(args.baselines_dir, args.baseline)
 
-    wins = 0
-    draws = 0
-    losses = 0
+    for baseline_path in baseline_paths:
+        baseline_name = baseline_name_from_path(baseline_path)
+        wins = 0
+        draws = 0
+        losses = 0
+        print(f"baseline={baseline_name}")
 
-    for game_idx in range(args.games):
-        game_seed = args.seed + game_idx
-        reward, steps = play_one_game(
-            cfg,
-            policy,
-            device,
-            seed=game_seed,
-            deterministic=args.deterministic,
+        for game_idx in range(args.games):
+            game_seed = args.seed + game_idx
+            reward, steps = play_one_game(
+                cfg,
+                policy,
+                device,
+                baseline_path,
+                seed=game_seed,
+                game_index=game_idx,
+                deterministic=args.deterministic,
+            )
+            label = reward_to_label(reward)
+            if label == "win":
+                wins += 1
+            elif label == "loss":
+                losses += 1
+            else:
+                draws += 1
+            print(
+                f"game={game_idx + 1} seed={game_seed} baseline={baseline_name} "
+                f"result={label} reward={reward:.1f} steps={steps}"
+            )
+
+        total_games = max(args.games, 1)
+        win_rate = wins / total_games
+        print(
+            f"summary baseline={baseline_name} wins={wins} losses={losses} "
+            f"draws={draws} games={args.games} win_rate={win_rate:.4f}"
         )
-        label = reward_to_label(reward)
-        if label == "win":
-            wins += 1
-        elif label == "loss":
-            losses += 1
-        else:
-            draws += 1
-        print(f"game={game_idx + 1} seed={game_seed} result={label} reward={reward:.1f} steps={steps}")
-
-    total_games = max(args.games, 1)
-    win_rate = wins / total_games
-    print(f"summary wins={wins} losses={losses} draws={draws} games={args.games}")
-    print(f"win_rate={win_rate:.4f}")
 
 
 if __name__ == "__main__":

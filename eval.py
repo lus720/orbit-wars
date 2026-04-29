@@ -80,9 +80,16 @@ def run_game(
     baseline_state = final[baseline_slot]
     my_reward = my_state.reward
     baseline_reward = baseline_state.reward
+    result = result_label(my_reward, baseline_reward)
     scores = final_ship_scores(final[0].observation, len(final))
     my_score = scores[my_slot]
     baseline_score = scores[baseline_slot]
+    replay_path = None
+    if result == "LOSS":
+        output_dir = Path("output")
+        output_dir.mkdir(exist_ok=True)
+        replay_path = output_dir / f"seed{seed}.html"
+        replay_path.write_text(env.render(mode="html"), encoding="utf-8")
 
     return {
         "game": game_index + 1,
@@ -95,7 +102,8 @@ def run_game(
         "baseline_score": baseline_score,
         "my_status": my_state.status,
         "baseline_status": baseline_state.status,
-        "result": result_label(my_reward, baseline_reward),
+        "result": result,
+        "replay_path": str(replay_path) if replay_path is not None else None,
         "steps": len(env.steps),
         "elapsed": elapsed,
     }
@@ -142,7 +150,7 @@ def main():
     )
     parser.add_argument("--my-agent", default="submission.py")
     parser.add_argument("--baseline-agent", default="baselines/submission.py")
-    parser.add_argument("--games", type=int, default=20)
+    parser.add_argument("--games", type=int, default=100)
     parser.add_argument(
         "--seeds",
         nargs="*",
@@ -154,7 +162,7 @@ def main():
         "--workers",
         type=int,
         default=None,
-        help="Parallel worker count. Defaults to min(games, CPU count).",
+        help="Parallel worker count. Defaults to min(games, 4, CPU count).",
     )
     parser.add_argument(
         "--no-alternate-sides",
@@ -168,7 +176,7 @@ def main():
     seeds = parse_seeds(args.seeds, args.seed_start, args.games)
     if len(seeds) != args.games:
         raise ValueError(f"Expected {args.games} seeds, got {len(seeds)}: {seeds}")
-    workers = args.workers or min(args.games, os.cpu_count() or 1)
+    workers = args.workers or min(args.games, 4, os.cpu_count() or 1)
     workers = max(1, min(workers, args.games))
 
     print(f"My agent:       {my_path}")
@@ -213,7 +221,8 @@ def main():
                 f"Game {result['game']:02d} | seed={result['seed']} | "
                 f"{result['result']} | "
                 f"steps={result['steps']} | "
-                f"time={result['elapsed']:.2f}s",
+                f"time={result['elapsed']:.2f}s"
+                + (f" | replay={result['replay_path']}" if result.get("replay_path") else ""),
                 flush=True,
             )
 

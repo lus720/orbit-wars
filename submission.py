@@ -1,7 +1,9 @@
 import math
+import os
 import time
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
+from itertools import combinations
 
 # ============================================================
 # Shared Configuration
@@ -17,8 +19,29 @@ ROTATION_LIMIT = 50.0
 TOTAL_STEPS = 500
 SIM_HORIZON = 110
 ROUTE_SEARCH_HORIZON = 60
+FLEET_LEDGER_SEARCH_HORIZON = 60
 HORIZON = 110
 LAUNCH_CLEARANCE = 0.1
+PATH_BLOCKER_EPSILON = 0.05
+ROUTE_AIM_OFFSETS = (0.0, -0.35, 0.35, -0.7, 0.7, -0.95, 0.95)
+EDGE_AIM_ENABLED = False
+DELAYED_SNIPE_ENABLED = False
+LOCAL_OPENING_ENABLED = False
+LEAN_OPENING_ENABLED = False
+AGGRESSIVE_DEFENSE_ENABLED = False
+OPENING_ROUTE_GUARD_ENABLED = False
+OPENING_ROUTE_GUARD_ALWAYS = True
+PROFILE_SIGNATURE = None
+PROFILE_EDGE_AIM = False
+PROFILE_DELAYED_SNIPE = False
+PROFILE_LOCAL_OPENING = False
+PROFILE_LEAN_OPENING = False
+PROFILE_AGGRESSIVE_DEFENSE = False
+PROFILE_OPENING_ROUTE_GUARD = False
+PROFILE_ARCHETYPE = "baseline"
+PROFILE_HOME_IDS = ()
+PROFILE_LAST_OWNERS = {}
+PROFILE_CAPTURED_AT = {}
 
 EARLY_TURN_LIMIT = 40
 OPENING_TURN_LIMIT = 80
@@ -61,6 +84,18 @@ REINFORCE_VALUE_MULT = 1.35
 CRASH_EXPLOIT_VALUE_MULT = 1.18
 FINISHING_HOSTILE_VALUE_MULT = 1.15
 BEHIND_ROTATING_NEUTRAL_VALUE_MULT = 0.92
+LOCAL_NEUTRAL_CORE_DIST = 18.0
+LOCAL_NEUTRAL_OUTER_DIST = 30.0
+LOCAL_NEUTRAL_MAX_BONUS = 0.28
+LOCAL_NEUTRAL_SOFT_SHIPS = 18
+FAR_NEUTRAL_OPPORTUNITY_DIST = 32.0
+FAR_NEUTRAL_OPPORTUNITY_PENALTY = 0.92
+LOCAL_PRIZE_RESERVE_TURNS = 8
+LOCAL_PRIZE_MAX_DIST = 22.0
+LOCAL_PRIZE_ENEMY_LEAD_ALLOWANCE = 4.0
+LOCAL_PRIZE_MIN_PRODUCTION = 3
+LOCAL_PRIZE_PROD_GAP = 2
+LOCAL_PRIZE_FAR_EXTRA_DIST = 8.0
 
 NEUTRAL_MARGIN_BASE = 2
 NEUTRAL_MARGIN_PROD_WEIGHT = 2
@@ -76,6 +111,26 @@ LONG_TRAVEL_MARGIN_DIVISOR = 3
 LONG_TRAVEL_MARGIN_CAP = 8
 COMET_MARGIN_RELIEF = 6
 FINISHING_HOSTILE_SEND_BONUS = 3
+POST_CAPTURE_HOLD_WINDOW = 2
+POST_CAPTURE_HIGH_PROD_HOLD_WINDOW = 6
+POST_CAPTURE_HOLD_RATIO = 0.65
+POST_CAPTURE_HOLD_MARGIN_CAP = 18
+POST_CAPTURE_REACTION_ENABLED = False
+POST_CAPTURE_PROFILE_REACTION_ENABLED = False
+POST_CAPTURE_REACTION_START_STEP = 150
+POST_CAPTURE_REACTION_WINDOW = 10
+POST_CAPTURE_REACTION_RATIO = 0.24
+POST_CAPTURE_REACTION_CAP = 28
+RICH_FAST_REACTION_SKIP_TURN = 95
+RICH_FAST_HOME_MIN_PROD = 5
+RICH_FAST_CORE_MIN_COUNT = 3
+RICH_FAST_CORE_DIST = 32.0
+RICH_FAST_CORE_MAX_SHIPS = 22
+P3_HEAVY_PRIZE_REACTION_HOME_PROD = 3
+P3_HEAVY_PRIZE_REACTION_MIN_PROD = 5
+P3_HEAVY_PRIZE_REACTION_MIN_SHIPS = 45
+P3_HEAVY_PRIZE_REACTION_MAX_SHIPS = 60
+P3_HEAVY_PRIZE_REACTION_DIST = 16.0
 
 STATIC_TARGET_SCORE_MULT = 1.18
 EARLY_STATIC_NEUTRAL_SCORE_MULT = 1.25
@@ -86,7 +141,12 @@ SNIPE_SCORE_MULT = 1.12
 SWARM_SCORE_MULT = 1.06
 CRASH_EXPLOIT_SCORE_MULT = 1.05
 
-FOLLOWUP_MIN_SHIPS = 8
+FOLLOWUP_MIN_SHIPS = 14
+P3_CLOSE_MIRROR_FOLLOWUP_MIN_SHIPS = 8
+P3_CLOSE_MIRROR_DIST = 15.0
+P3_CLOSE_MIRROR_SHIPS = 16
+P3_CLOSE_MIRROR_CORE_BLOCK_DIST = 24.0
+P3_CLOSE_MIRROR_CORE_BLOCK_SHIPS = 20
 LOW_VALUE_COMET_PRODUCTION = 1
 LATE_CAPTURE_BUFFER = 5
 VERY_LATE_CAPTURE_BUFFER = 3
@@ -94,10 +154,87 @@ VERY_LATE_CAPTURE_BUFFER = 3
 DEFENSE_LOOKAHEAD_TURNS = 28
 DEFENSE_COST_TURN_WEIGHT = 0.4
 DEFENSE_FRONTIER_SCORE_MULT = 1.12
+URGENT_DEFENSE_TURN = 12
+URGENT_DEFENSE_SCORE_MULT = 1.45
+EARLY_DEFENSE_SCORE_MULT = 1.15
 DEFENSE_SEND_MARGIN_BASE = 1
 DEFENSE_SEND_MARGIN_PROD_WEIGHT = 1
 DEFENSE_SHIP_VALUE = 0.55
-
+DEFENSE_CORE_PRODUCTION = 3
+CORE_PRODUCTION = 4
+CORE_PASSIVE_KEEP_BASE = 5
+CORE_PASSIVE_KEEP_PROD_WEIGHT = 3
+P3_HEAVY_PRIZE_CORE_KEEP_BONUS = 1
+CORE_PASSIVE_BOOST_KEEP_BASE = 7
+CORE_PASSIVE_BOOST_PROD_WEIGHT = 5
+ORIGINAL_HOME_EXTRA_KEEP = 10
+LOW_PROD_PROFILE_HOME_EXTRA_KEEP = 0
+EARLY_P5_CORE_MIN_KEEP = 40
+EARLY_P5_CORE_KEEP_TURN_LIMIT = 90
+FRESH_CORE_SOURCE_LOCK_TURN_LIMIT = 90
+FRESH_CORE_SOURCE_LOCK_TURNS = 22
+FRESH_CORE_SOURCE_LOCK_PROD_MIN = 4
+FRESH_CORE_SOURCE_LOCK_KEEP = 24
+FRESH_CORE_SOURCE_LOCK_FRACTION = 0.15
+FRESH_CORE_SOURCE_LOCK_THREAT_HORIZON = 14
+FRESH_CORE_SOURCE_LOCK_THREAT_TURN = 10
+FRESH_CORE_SOURCE_LOCK_STACK_FLOOR = 10
+FRESH_CORE_PASSIVE_HOLD_TURN_LIMIT = 130
+FRESH_CORE_PASSIVE_HOLD_TURNS = 30
+FRESH_CORE_PASSIVE_HOLD_BASE = 12
+FRESH_CORE_PASSIVE_HOLD_PROD_WEIGHT = 6
+FRESH_CORE_PASSIVE_HOLD_ENEMY_DIST = 30.0
+FRESH_CORE_PASSIVE_SOFT_HOLD_TURNS = 22
+FRESH_CORE_PASSIVE_SLOW_HIGH_HOME_TURNS = 35
+SLOW_HIGH_HOME_HEAVY_CORE_DIST = 30.0
+SLOW_HIGH_HOME_HEAVY_CORE_SHIPS = 35
+SLOW_HIGH_HOME_CHEAP_CORE_DIST = 24.0
+SLOW_HIGH_HOME_CHEAP_CORE_SHIPS = 24
+FRESH_CORE_PASSIVE_SOFT_HOLD_BASE = 10
+FRESH_CORE_PASSIVE_SOFT_HOLD_PROD_WEIGHT = 5
+FRESH_CORE_PASSIVE_STRONG_DIST = 13.0
+FRESH_CORE_PASSIVE_STRONG_SHIPS = 20
+FRESH_CORE_PASSIVE_STRONG_P5_DIST = 22.0
+FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_DIST = 14.0
+FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_SHIPS = 30
+FRAGILE_HOME_INITIAL_SHIPS = 12
+FRAGILE_HOME_SOURCE_THREAT_STACK_MULT = 6
+CORE_SOURCE_PRESSURE_PROD_DEFICIT = 8
+CORE_SOURCE_PRESSURE_STACK_MULT = 6
+CORE_SOURCE_PRESSURE_ATTACK_FRACTION = 0.25
+LOW_HOME_RICH_CORE_DIST = 27.0
+LOW_HOME_RICH_CORE_MAX_SHIPS = 30
+LOW_HOME_RICH_CORE_MIN_COUNT = 2
+LOW_HOME_RICH_CORE_ATTACK_FRACTION = 0.15
+LOW_HOME_RICH_CORE_KEEP_BASE = 0
+LOW_HOME_RICH_CORE_KEEP_PROD_WEIGHT = 0
+LOW_HOME_CLOSE_CHEAP_P4_EXTRA_MARGIN = 0
+MID_HOME_ANCHOR_ATTACK_FRACTION = 0.25
+CORE_THREAT_HORIZON = 24
+CORE_THREAT_RATIO = 0.52
+CORE_URGENT_THREAT_TURN = 8
+CORE_URGENT_THREAT_RATIO = 0.70
+CORE_VISIBLE_THREAT_TURN = 20
+CORE_THREATENED_ATTACK_FRACTION = 0.25
+CORE_DEFENSE_SCORE_MULT = 3.0
+MEDIUM_P5_HOME_CORE_DEFENSE_SCORE_MULT = 2.6
+MEDIUM_P5_HOME_DIST = 15.0
+MEDIUM_P5_HOME_MIN_SHIPS = 18
+MEDIUM_P5_HOME_MAX_SHIPS = 26
+CORE_URGENT_DEFENSE_SCORE_MULT = 1.35
+CORE_RECAPTURE_SCORE_MULT = 1.25
+PREDICTED_FLEET_THREAT_HORIZON = 14
+SOURCE_LOCK_FALL_TURNS = 14
+SOURCE_LOCK_MIN_PRODUCTION = 3
+RECLAIM_HOME_VALUE_MULT = 2.35
+THREATENED_CORE_VALUE_MULT = 1.18
+ENEMY_OCCUPATION_TURN_TWO_PLAYER = 40
+ENEMY_OCCUPATION_TURN_FOUR_PLAYER = 20
+ENEMY_OCCUPATION_PREP_TURNS = 10
+MIDGAME_NEUTRAL_FIRST_TURN_LIMIT = 120
+MIDGAME_NEUTRAL_FIRST_MIN_PROD = 2
+MIDGAME_HOSTILE_WITH_NEUTRALS_MULT = 0.62
+MIDGAME_CORE_HOSTILE_WITH_NEUTRALS_MULT = 0.82
 REINFORCE_ENABLED = True
 REINFORCE_MIN_PRODUCTION = 2
 REINFORCE_MAX_TRAVEL_TURNS = 22
@@ -131,6 +268,86 @@ THREE_SOURCE_SWARM_ENABLED = True
 THREE_SOURCE_MIN_TARGET_SHIPS = 20
 THREE_SOURCE_ETA_TOLERANCE = 1
 THREE_SOURCE_PLAN_PENALTY = 0.93
+HEAVY_ASSAULT_ENABLED = True
+HEAVY_ASSAULT_START_STEP = 45
+HEAVY_ASSAULT_MIN_TOTAL = 60
+HEAVY_ASSAULT_MIN_SOURCE_SHIPS = 18
+HEAVY_ASSAULT_MAX_SOURCES = 5
+HEAVY_ASSAULT_MAX_OPTIONS = 3
+HEAVY_ASSAULT_ETA_TOLERANCE = 4
+HEAVY_ASSAULT_CLUSTER_RADIUS = 20.0
+HEAVY_ASSAULT_CLUSTER_PROD_WEIGHT = 0.45
+HEAVY_ASSAULT_OVERKILL = 18
+HEAVY_ASSAULT_SCORE_MULT = 2.05
+DEFICIT_HEAVY_ASSAULT_PROD_GAP = 6
+DEFICIT_HEAVY_ASSAULT_MIN_TOTAL_SHIPS = 260
+DEFICIT_HEAVY_ASSAULT_SCORE_MULT = 3.0
+EARLY_HEAVY_P2_CORE_DIST = 20.0
+EARLY_HEAVY_P2_CORE_MAX_SHIPS = 30
+EARLY_HEAVY_P2_CHEAP_CORE_DIST = 14.0
+EARLY_HEAVY_P2_CHEAP_CORE_SHIPS = 12
+EARLY_PROFILE_HEAVY_ASSAULT_START_STEP = 35
+EARLY_PROFILE_HEAVY_ASSAULT_MIN_TOTAL = 45
+EARLY_PROFILE_HEAVY_ASSAULT_MIN_SOURCE = 14
+LOW_HOME_RICH_HEAVY_ASSAULT_START_STEP = HEAVY_ASSAULT_START_STEP
+LOW_HOME_RICH_HEAVY_ASSAULT_MIN_TOTAL = HEAVY_ASSAULT_MIN_TOTAL
+LOW_HOME_RICH_HEAVY_ASSAULT_MIN_SOURCE = HEAVY_ASSAULT_MIN_SOURCE_SHIPS
+LOW_HOME_RICH_HEAVY_ASSAULT_SCORE_MULT = 1.0
+TURTLE_BREAKOUT_START_STEP = 120
+TURTLE_BREAKOUT_MAX_PLANETS = 6
+TURTLE_BREAKOUT_MIN_TOTAL = 700
+TURTLE_BREAKOUT_PROD_GAP = 10
+TURTLE_BREAKOUT_SOURCE_FRACTION = 0.52
+TURTLE_BREAKOUT_MIN_SOURCE = 45
+TURTLE_BREAKOUT_MAX_SOURCES = 4
+TURTLE_BREAKOUT_MIN_TOTAL_SEND = 110
+TURTLE_BREAKOUT_OVERKILL = 45
+MIDGAME_HOSTILE_MIN_SEND = 20
+MIDGAME_CORE_SOURCE_MIN_SEND = 24
+TRANSITION_HOSTILE_TURN_LIMIT = 82
+TRANSITION_HOSTILE_MIN_SEND = 32
+TRANSITION_CORE_HOSTILE_MIN_SEND = 40
+TRANSITION_HOSTILE_PROD_LEAD = 6
+MIDGAME_REMOTE_HOSTILE_TURNS = 18
+MIDGAME_REMOTE_HOSTILE_MIN_SEND = 42
+MIDGAME_REMOTE_HOSTILE_PROD_WEIGHT = 2
+
+MIDGAME_CONTROL_ENABLED = False
+MIDGAME_CONTROL_NEUTRAL_ONLY = True
+MIDGAME_CONTROL_START_STEP = 38
+MIDGAME_CONTROL_END_STEP = 175
+MIDGAME_CONTROL_MAX_TARGETS = 8
+MIDGAME_CONTROL_MAX_SOURCES = 4
+MIDGAME_CONTROL_MAX_TRAVEL = 24
+MIDGAME_CONTROL_NEUTRAL_MAX_TRAVEL = 22
+MIDGAME_CONTROL_HOSTILE_MAX_TRAVEL = 20
+MIDGAME_CONTROL_MIN_PRODUCTION = 2
+MIDGAME_CONTROL_MIN_SOURCE_SHIPS = 10
+MIDGAME_CONTROL_MIN_SCORE = 1.15
+MIDGAME_CONTROL_CHEAP_MIN_SCORE = 0.42
+MIDGAME_CONTROL_SCORE_MULT = 1.38
+MIDGAME_CONTROL_NEUTRAL_MULT = 1.18
+MIDGAME_CONTROL_HOSTILE_MULT = 0.92
+MIDGAME_CONTROL_RECLAIM_MULT = 1.45
+MIDGAME_CONTROL_CORE_MULT = 1.18
+MIDGAME_CONTROL_RACE_ALLOWANCE = 5.0
+MIDGAME_CONTROL_OUTER_DIST = 34.0
+MIDGAME_CONTROL_HOLD_BASE = 2
+MIDGAME_CONTROL_HOLD_PROD_WEIGHT = 1
+MIDGAME_CONTROL_HOLD_RACE_MARGIN = 3
+MIDGAME_CONTROL_SOURCE_PRESSURE_WINDOW = 10
+MIDGAME_CONTROL_SOURCE_PRESSURE_RATIO = 0.16
+MIDGAME_CONTROL_SOURCE_PRESSURE_CAP = 20
+MIDGAME_CONTROL_MAX_PER_TARGET = 2
+MIDGAME_CONTROL_CHEAP_START_STEP = 52
+MIDGAME_CONTROL_CHEAP_MIN_MY_PROD = 18
+MIDGAME_CONTROL_CHEAP_MAX_SHIPS = 0
+MIDGAME_CONTROL_CHEAP_MAX_DIST = 30.0
+MIDGAME_CONTROL_CHEAP_BASE_MULT = 0.72
+LOW_VALUE_FORTRESS_PROD_MAX = 2
+LOW_VALUE_FORTRESS_MIN_SHIPS = 40
+LOW_VALUE_FORTRESS_IGNORE_UNTIL = 150
+LOW_VALUE_FORTRESS_MIN_TOTAL = 900
 
 WAIT_STRIKE_ENABLED = True
 WAIT_STRIKE_DELAYS = (0, 2, 4, 6)
@@ -143,6 +360,8 @@ FOUR_SOURCE_PLAN_PENALTY = 0.91
 
 PROACTIVE_DEFENSE_HORIZON = 12
 PROACTIVE_DEFENSE_RATIO = 0.18
+AGGRESSIVE_DEFENSE_HORIZON = 18
+AGGRESSIVE_DEFENSE_RATIO = 0.28
 MULTI_ENEMY_PROACTIVE_HORIZON = 14
 MULTI_ENEMY_PROACTIVE_RATIO = 0.22
 MULTI_ENEMY_STACK_WINDOW = 3
@@ -169,11 +388,195 @@ FINISHING_ATTACK_MARGIN_BONUS = 0.08
 
 DOOMED_EVAC_TURN_LIMIT = 24
 DOOMED_MIN_SHIPS = 8
+DOOMED_CORE_THREAT_HORIZON = 5
 
 SOFT_ACT_DEADLINE = 0.82
 HEAVY_PHASE_MIN_TIME = 0.16
 OPTIONAL_PHASE_MIN_TIME = 0.08
 HEAVY_ROUTE_PLANET_LIMIT = 32
+
+ENEMY_PREDICTION_ENABLED = False
+ENEMY_PREDICTION_MAX_STEP = 220
+ENEMY_PREDICTION_SOURCE_LIMIT = 4
+ENEMY_PREDICTION_TARGET_LIMIT = 10
+ENEMY_PREDICTION_MIN_SCORE = 0.0
+
+OPENING_LOW_ROI_SCORE_MULT = 0.28
+OPENING_WEAK_ROI_SCORE_MULT = 0.58
+OPENING_LOW_ROI_MAX_PRODUCTION = 1
+OPENING_LOW_ROI_MIN_SHIPS = 18
+OPENING_ROI_PRODUCTION_LIMIT = 2
+OPENING_WEAK_ROI_MIN_SHIPS = 30
+OPENING_ROI_MIN_SCORE = 0.055
+OPENING_BRIDGE_RELIEF_RADIUS = 18.0
+OPENING_BRIDGE_RELIEF_MULT = 0.72
+OPENING_QUALITY_GATE_TURN = 75
+OPENING_BETTER_TARGET_DIST = 34.0
+OPENING_BETTER_TARGET_MAX_SHIPS = 32
+OPENING_BETTER_TARGET_MIN_PROD = 2
+OPENING_BAD_TARGET_MAX_PROD = 1
+OPENING_BAD_TARGET_MIN_SHIPS = 18
+OPENING_COMMITTED_ENABLED = False
+OPENING_COMMIT_TURN_LIMIT = 55
+OPENING_COMMIT_HOME_PROD_MAX = 1
+OPENING_COMMIT_MIN_TARGET_PROD = 2
+OPENING_COMMIT_MAX_SHIPS = 32
+OPENING_COMMIT_MIN_SCORE = 0.045
+OPENING_COMMIT_MAX_DIST = 36.0
+OPENING_COMMIT_MIN_RESERVE = 1
+OPENING_COMMIT_MARGIN = 1
+OPENING_SCORE_DISTANCE_WEIGHT = 0.75
+OPENING_SCORE_SHIP_WEIGHT = 1.0
+OPENING_SCORE_BASE_COST = 4.0
+OPENING_SCORE_STATIC_MULT = 1.08
+OPENING_SCORE_PROD_POWER = 1.0
+OPENING_SCORE_BRIDGE_RADIUS = 24.0
+OPENING_SCORE_BRIDGE_MULT = 0.55
+OPENING_SCORE_LOW_PROD_BRIDGE_MULT = 0.18
+OPENING_SCORE_BRIDGE_MIN_TARGET_PROD = 3
+OPENING_SCORE_LOW_VALUE_RATIO = 0.55
+OPENING_FAR_NEUTRAL_TURN_LIMIT = 60
+OPENING_FAR_NEUTRAL_DIST = 44.0
+OPENING_FAR_NEUTRAL_TURNS = 20
+OPENING_FAR_NEUTRAL_LOCAL_ADVANTAGE = 1.12
+OPENING_FILL_STEP = 35
+OPENING_FILL_MIN_PROD = 18
+OPENING_FILL_MIN_PLANETS = 5
+OPENING_FILL_MAX_TARGET_SHIPS = 35
+OPENING_FILL_MAX_DIST = 28.0
+OPENING_FILL_LOW_PROD_MAX_NEEDED = 26
+OPENING_FILL_LOW_PROD_MAX_OVER_NEUTRAL = 16
+OPENING_FILL_WEAK_PROD_MAX_NEEDED = 42
+OPENING_HEAVY_PRIZE_MIN_PROD = 4
+OPENING_HEAVY_PRIZE_MIN_SHIPS = 36
+OPENING_HEAVY_PRIZE_SCORE_MULT = 1.45
+OPENING_HEAVY_PRIZE_PLAN_START = 22
+OPENING_HEAVY_PRIZE_PLAN_END = 68
+OPENING_HEAVY_PRIZE_MAX_SOURCES = 4
+OPENING_HEAVY_PRIZE_MIN_SOURCE = 8
+OPENING_HEAVY_PRIZE_RESERVE_BASE = 4
+OPENING_HEAVY_PRIZE_RESERVE_PROD = 2
+OPENING_HEAVY_PRIZE_MARGIN = 6
+OPENING_HEAVY_TRAP_MARGIN = 14
+OPENING_HUGE_PRIZE_SHIPS = 60
+OPENING_HUGE_PRIZE_LOW_HOME_SHIPS = 45
+OPENING_HUGE_PRIZE_CLOSE_TRAP_SHIPS = 45
+OPENING_HUGE_PRIZE_MARGIN = 20
+OPENING_HEAVY_PRIZE_SOURCE_THREAT_HORIZON = 5
+OPENING_PRIORITY_ENABLED = True
+OPENING_PRIORITY_TURN_LIMIT = 58
+OPENING_PRIORITY_WAIT_TURN_LIMIT = 42
+OPENING_PRIORITY_MAX_PLANETS = 3
+OPENING_PRIORITY_MAX_WAIT = 14
+OPENING_PRIORITY_HOME_PROD_MIN = 2
+OPENING_PRIORITY_HOME_PROD_MAX = 3
+OPENING_PRIORITY_MIN_TARGET_PROD = 2
+OPENING_PRIORITY_MIN_SCORE = 0.060
+OPENING_PRIORITY_HOME_KEEP = 2
+OPENING_PRIORITY_CORE_KEEP = 3
+OPENING_PRIORITY_WAIT_ADVANTAGE = 1.08
+OPENING_PRIORITY_WAIT_PENALTY = 0.055
+OPENING_PRIORITY_MARGIN_CAP = 5
+OPENING_PRIORITY_ALT_AFFORDABLE_RATIO = 0.88
+OPENING_PRIORITY_TRAP_MAX_DIST = 15.0
+OPENING_PRIORITY_TRAP_MIN_SHIPS = 20
+OPENING_PRIORITY_PRIZE_MAX_DIST = 24.0
+OPENING_PRIORITY_PRIZE_MAX_SHIPS = 20
+OPENING_PRIORITY_PRIZE_MIN_PROD = 4
+OPENING_ANCHOR_ENABLED = True
+OPENING_ANCHOR_TURN_LIMIT = 18
+OPENING_ANCHOR_MAX_PLANETS = 1
+OPENING_ANCHOR_MAX_WAIT = 10
+OPENING_ANCHOR_HOME_KEEP = 1
+OPENING_ANCHOR_MIN_HOME_PROD = 3
+OPENING_ANCHOR_MIN_PROD = 5
+OPENING_ANCHOR_MIN_SHIPS = 20
+OPENING_ANCHOR_MAX_SHIPS = 32
+OPENING_ANCHOR_MAX_DIST = 13.0
+OPENING_ANCHOR_FAST_ALT_PROD = 4
+OPENING_ANCHOR_FAST_ALT_MAX_SHIPS = 12
+OPENING_ANCHOR_FAST_ALT_DIST = 17.0
+OPENING_ANCHOR_MARGIN = 3
+OPENING_MAINLINE_ENABLED = True
+OPENING_MAINLINE_TURN_LIMIT = 42
+OPENING_MAINLINE_WAIT_TURN_LIMIT = 30
+OPENING_MAINLINE_MAX_PLANETS = 1
+OPENING_MAINLINE_MAX_WAIT = 16
+OPENING_MAINLINE_HOME_KEEP = 1
+OPENING_MAINLINE_CORE_KEEP = 3
+OPENING_MAINLINE_MIN_TARGET_PROD = 2
+OPENING_MAINLINE_MARGIN = 2
+OPENING_MAINLINE_CORE_EXTRA_MARGIN = 2
+OPENING_MAINLINE_MIN_SCORE = 0.040
+OPENING_MAINLINE_FALLBACK_LOW_MIN_SCORE = 0.005
+OPENING_MAINLINE_WAIT_PENALTY = 0.060
+OPENING_MAINLINE_ALT_AFFORDABLE_RATIO = 0.84
+OPENING_MAINLINE_PROD_POWER = 1.35
+OPENING_MAINLINE_SHIP_WEIGHT = 1.0
+OPENING_MAINLINE_TURN_WEIGHT = 0.70
+OPENING_MAINLINE_WAIT_WEIGHT = 1.8
+OPENING_MAINLINE_BASE_COST = 4.0
+OPENING_MAINLINE_LOW_PROD_MULT = 0.22
+OPENING_MAINLINE_LOW_HOME_CHEAP_P2_DIST = 24.0
+OPENING_MAINLINE_LOW_HOME_CHEAP_P2_SHIPS = 14
+OPENING_MAINLINE_LOW_HOME_TWO_STEP_DIST = 23.0
+OPENING_MAINLINE_LOW_HOME_TWO_STEP_SHIPS = 12
+OPENING_MAINLINE_CLOSE_CORE_DIST = 15.0
+OPENING_MAINLINE_CLOSE_CORE_SHIPS = 24
+OPENING_MAINLINE_P2_TRAP_DIST = 16.0
+OPENING_MAINLINE_P2_TRAP_SHIPS = 10
+OPENING_MAINLINE_P2_PRIZE_DIST = 30.0
+OPENING_MAINLINE_P2_PRIZE_SHIPS = 10
+OPENING_MAINLINE_P2_FAST_P5_DIST = 25.0
+OPENING_MAINLINE_P2_FAST_P5_SHIPS = 10
+OPENING_MAINLINE_P2_FALLBACK_LOW_DIST = 16.0
+OPENING_MAINLINE_P2_FALLBACK_LOW_SHIPS = 10
+OPENING_MAINLINE_P2_QUALITY_DIST = 35.0
+OPENING_MAINLINE_P2_QUALITY_SHIPS = 30
+OPENING_MAINLINE_P3_CORE_DIST = 24.0
+OPENING_MAINLINE_P3_CORE_MIN_DIST = 18.0
+OPENING_MAINLINE_P3_CORE_SHIPS = 28
+OPENING_LOCAL_QUALITY_ENABLED = True
+OPENING_LOCAL_QUALITY_TURN_LIMIT = 34
+OPENING_LOCAL_QUALITY_MAX_PLANETS = 1
+OPENING_LOCAL_QUALITY_MAX_WAIT = 14
+OPENING_LOCAL_QUALITY_HOME_KEEP = 1
+OPENING_LOCAL_QUALITY_CORE_KEEP = 3
+OPENING_LOCAL_QUALITY_MARGIN = 2
+OPENING_LOCAL_QUALITY_CORE_MARGIN = 3
+OPENING_LOCAL_LOW_HOME_CORE_DIST = 22.0
+OPENING_LOCAL_LOW_HOME_CORE_SHIPS = 22
+OPENING_LOCAL_LOW_HOME_CHEAP_P4_DIST = 12.0
+OPENING_LOCAL_LOW_HOME_CHEAP_P4_SHIPS = 10
+OPENING_LOCAL_LOW_HOME_CHEAP_P5_DIST = 12.0
+OPENING_LOCAL_LOW_HOME_CHEAP_P5_SHIPS = 12
+OPENING_LOCAL_HIGH_HOME_CORE_DIST = 22.0
+OPENING_LOCAL_HIGH_HOME_CORE_SHIPS = 18
+OPENING_LOCAL_MID_HOME_P3_DIST = 24.0
+OPENING_LOCAL_MID_HOME_P3_MIN_DIST = 18.0
+OPENING_LOCAL_MID_HOME_P3_SHIPS = 16
+OPENING_LOCAL_MID_HOME_CORE_BLOCK_DIST = 18.0
+OPENING_LOCAL_MID_HOME_CORE_BLOCK_SHIPS = 18
+OPENING_NEAR_QUALITY_ENABLED = False
+OPENING_NEAR_QUALITY_TURN_LIMIT = 68
+OPENING_NEAR_QUALITY_MAX_PLANETS = 7
+OPENING_NEAR_QUALITY_MAX_TARGETS = 8
+OPENING_NEAR_QUALITY_MAX_WAIT = 10
+OPENING_NEAR_QUALITY_HOME_KEEP = 2
+OPENING_NEAR_QUALITY_CORE_KEEP = 4
+OPENING_NEAR_QUALITY_MARGIN = 3
+OPENING_NEAR_QUALITY_CORE_MARGIN = 2
+OPENING_NEAR_QUALITY_CORE_DIST = 24.0
+OPENING_NEAR_QUALITY_HOME_DIST = 18.0
+OPENING_NEAR_QUALITY_CHAIN_DIST = 28.0
+OPENING_NEAR_QUALITY_MIN_PROD = 3
+OPENING_NEAR_QUALITY_P3_MAX_SHIPS = 28
+OPENING_NEAR_QUALITY_CORE_MAX_SHIPS = 30
+OPENING_NEAR_QUALITY_RACE_ALLOWANCE = 6.0
+OPENING_NEAR_QUALITY_MIN_SCORE = 0.030
+OPENING_NEAR_QUALITY_ALT_AFFORDABLE_RATIO = 0.94
+OPENING_NEAR_QUALITY_HOME_BONUS_DIST = 32.0
+OPENING_NEAR_QUALITY_HOME_BONUS_MAX = 0.55
 
 
 # ============================================================
@@ -208,6 +611,7 @@ class Mission:
     target_id: int
     turns: int
     options: list[ShotOption] = field(default_factory=list)
+    min_total: int = 0
 
 # ============================================================
 # Physics
@@ -255,13 +659,83 @@ def launch_point(sx, sy, sr, angle):
     return sx + math.cos(angle) * clearance, sy + math.sin(angle) * clearance
 
 
+def ray_circle_hit_distance(start_x, start_y, angle, cx, cy, radius):
+    dir_x = math.cos(angle)
+    dir_y = math.sin(angle)
+    ox = start_x - cx
+    oy = start_y - cy
+    b = 2.0 * (ox * dir_x + oy * dir_y)
+    c = ox * ox + oy * oy - radius * radius
+    disc = b * b - 4.0 * c
+    if disc < 0:
+        return None
+    root = math.sqrt(max(0.0, disc))
+    hits = [(-b - root) / 2.0, (-b + root) / 2.0]
+    forward_hits = [hit for hit in hits if hit >= 0.0]
+    if not forward_hits:
+        return None
+    return min(forward_hits)
+
+
+def ray_board_exit_distance(start_x, start_y, angle):
+    dir_x = math.cos(angle)
+    dir_y = math.sin(angle)
+    hits = []
+    if abs(dir_x) > 1e-9:
+        for boundary_x in (0.0, BOARD):
+            t = (boundary_x - start_x) / dir_x
+            if t >= 0.0:
+                y = start_y + dir_y * t
+                if -PATH_BLOCKER_EPSILON <= y <= BOARD + PATH_BLOCKER_EPSILON:
+                    hits.append(t)
+    if abs(dir_y) > 1e-9:
+        for boundary_y in (0.0, BOARD):
+            t = (boundary_y - start_y) / dir_y
+            if t >= 0.0:
+                x = start_x + dir_x * t
+                if -PATH_BLOCKER_EPSILON <= x <= BOARD + PATH_BLOCKER_EPSILON:
+                    hits.append(t)
+    if not hits:
+        return None
+    return min(hits)
+
+
+def path_geometry_for_angle(sx, sy, sr, tx, ty, tr, angle):
+    start_x, start_y = launch_point(sx, sy, sr, angle)
+    hit_distance = ray_circle_hit_distance(start_x, start_y, angle, tx, ty, tr)
+    if hit_distance is None:
+        return None
+    end_x = start_x + math.cos(angle) * hit_distance
+    end_y = start_y + math.sin(angle) * hit_distance
+    return angle, start_x, start_y, end_x, end_y, hit_distance
+
+
 def actual_path_geometry(sx, sy, sr, tx, ty, tr):
     angle = math.atan2(ty - sy, tx - sx)
+    if EDGE_AIM_ENABLED:
+        geometry = path_geometry_for_angle(sx, sy, sr, tx, ty, tr, angle)
+        if geometry is not None:
+            return geometry
     start_x, start_y = launch_point(sx, sy, sr, angle)
     hit_distance = max(0.0, dist(sx, sy, tx, ty) - (sr + LAUNCH_CLEARANCE) - tr)
     end_x = start_x + math.cos(angle) * hit_distance
     end_y = start_y + math.sin(angle) * hit_distance
     return angle, start_x, start_y, end_x, end_y, hit_distance
+
+
+def candidate_path_geometries(sx, sy, sr, tx, ty, tr):
+    base_angle = math.atan2(ty - sy, tx - sx)
+    normal_x = -math.sin(base_angle)
+    normal_y = math.cos(base_angle)
+    aim_span = max(0.0, tr - 0.02)
+
+    for offset in ROUTE_AIM_OFFSETS:
+        aim_x = tx + normal_x * aim_span * offset
+        aim_y = ty + normal_y * aim_span * offset
+        angle = math.atan2(aim_y - sy, aim_x - sx)
+        geometry = path_geometry_for_angle(sx, sy, sr, tx, ty, tr, angle)
+        if geometry is not None:
+            yield offset, geometry
 
 
 def safe_angle_and_distance(sx, sy, sr, tx, ty, tr):
@@ -275,9 +749,33 @@ def safe_angle_and_distance(sx, sy, sr, tx, ty, tr):
         ty,
         tr,
     )
-    if segment_hits_sun(start_x, start_y, end_x, end_y):
+    if not segment_hits_sun(start_x, start_y, end_x, end_y):
+        return angle, hit_distance
+
+    if not EDGE_AIM_ENABLED:
         return None
-    return angle, hit_distance
+
+    best = None
+    best_key = None
+    for offset, geometry in candidate_path_geometries(sx, sy, sr, tx, ty, tr):
+        angle, start_x, start_y, end_x, end_y, hit_distance = geometry
+        sun_clearance = point_to_segment_distance(
+            CENTER_X,
+            CENTER_Y,
+            start_x,
+            start_y,
+            end_x,
+            end_y,
+        ) - SUN_R
+        if sun_clearance < SUN_SAFETY:
+            continue
+        key = (hit_distance, abs(offset), -sun_clearance)
+        if best_key is None or key < best_key:
+            best_key = key
+            best = (angle, hit_distance)
+    if best is None:
+        return None
+    return best
 
 
 def predict_planet_position(planet, initial_by_id, angular_velocity, turns):
@@ -488,7 +986,8 @@ def aim_with_prediction(src, target, ships, initial_by_id, ang_vel, comets, come
 
 def fleet_target_planet(fleet, planets):
     # Project in-flight fleets by ray-circle hit timing to build a usable
-    # arrival ledger.
+    # arrival ledger.  Keep this lightweight: the ledger is rebuilt every
+    # decision, and over-modeling it starves higher-value planning phases.
     best_planet = None
     best_time = 1e9
     dir_x = math.cos(fleet.angle)
@@ -516,10 +1015,67 @@ def fleet_target_planet(fleet, planets):
     return best_planet, int(math.ceil(best_time))
 
 
-def build_arrival_ledger(fleets, planets):
+def fleet_target_planet_predictive(fleet, planets, initial_by_id, ang_vel, comets, comet_ids):
+    dir_x = math.cos(fleet.angle)
+    dir_y = math.sin(fleet.angle)
+    speed = fleet_speed(fleet.ships)
+    prev_x, prev_y = fleet.x, fleet.y
+    best = None
+
+    for turn in range(1, FLEET_LEDGER_SEARCH_HORIZON + 1):
+        cur_x = fleet.x + dir_x * speed * turn
+        cur_y = fleet.y + dir_y * speed * turn
+        if cur_x < 0.0 or cur_x > BOARD or cur_y < 0.0 or cur_y > BOARD:
+            break
+
+        for planet in planets:
+            pos = predict_target_position(
+                planet,
+                turn,
+                initial_by_id,
+                ang_vel,
+                comets,
+                comet_ids,
+            )
+            if pos is None:
+                continue
+            if point_to_segment_distance(
+                pos[0],
+                pos[1],
+                prev_x,
+                prev_y,
+                cur_x,
+                cur_y,
+            ) <= planet.radius:
+                distance_key = point_to_segment_distance(
+                    pos[0],
+                    pos[1],
+                    fleet.x,
+                    fleet.y,
+                    cur_x,
+                    cur_y,
+                )
+                key = (turn, distance_key, planet.id)
+                if best is None or key < best[0]:
+                    best = (key, planet)
+        if best is not None and best[0][0] <= turn:
+            return best[1], best[0][0]
+        prev_x, prev_y = cur_x, cur_y
+
+    return fleet_target_planet(fleet, planets)
+
+
+def build_arrival_ledger(fleets, planets, initial_by_id, ang_vel, comets, comet_ids):
     arrivals_by_planet = {planet.id: [] for planet in planets}
     for fleet in fleets:
-        target, eta = fleet_target_planet(fleet, planets)
+        target, eta = fleet_target_planet_predictive(
+            fleet,
+            planets,
+            initial_by_id,
+            ang_vel,
+            comets,
+            comet_ids,
+        )
         if target is None:
             continue
         arrivals_by_planet[target.id].append((eta, fleet.owner, int(fleet.ships)))
@@ -750,7 +1306,14 @@ class WorldModel:
             if owner != player
         )
 
-        self.arrivals_by_planet = build_arrival_ledger(fleets, planets)
+        self.arrivals_by_planet = build_arrival_ledger(
+            fleets,
+            planets,
+            initial_by_id,
+            ang_vel,
+            comets,
+            self.comet_ids,
+        )
         self.base_timeline = {
             planet.id: simulate_planet_timeline(
                 planet,
@@ -798,6 +1361,39 @@ class WorldModel:
     def source_inventory_left(self, source_id, spent_total):
         return max(0, int(self.planet_by_id[source_id].ships) - spent_total[source_id])
 
+    def route_hits_target_first(self, src, target, angle, path_target_x, path_target_y):
+        start_x, start_y = launch_point(src.x, src.y, src.radius, angle)
+        target_hit = ray_circle_hit_distance(
+            start_x,
+            start_y,
+            angle,
+            path_target_x,
+            path_target_y,
+            target.radius,
+        )
+        if target_hit is None:
+            return False
+
+        for other in self.planets:
+            if other.id in (src.id, target.id):
+                continue
+            hit = ray_circle_hit_distance(
+                start_x,
+                start_y,
+                angle,
+                other.x,
+                other.y,
+                other.radius,
+            )
+            if (
+                hit is not None
+                and hit + PATH_BLOCKER_EPSILON < target_hit
+                and self.is_opening
+                and (OPENING_ROUTE_GUARD_ENABLED or poor_opening_target(other, self))
+            ):
+                return False
+        return True
+
     def plan_shot(self, src_id, target_id, ships):
         ships = int(ships)
         key = (src_id, target_id, ships)
@@ -815,6 +1411,10 @@ class WorldModel:
             self.comets,
             self.comet_ids,
         )
+        if result is not None:
+            angle, _, path_target_x, path_target_y = result
+            if not self.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
+                result = None
         self.shot_cache[key] = result
         return result
 
@@ -929,18 +1529,24 @@ class WorldModel:
         target = self.planet_by_id[target_id]
         my_t = 10**9
         for planet in self.my_planets:
-            seeded = self.best_probe_aim(planet.id, target.id, max(1, int(planet.ships)))
-            if seeded is None:
-                continue
-            _, aim = seeded
+            ships = max(1, int(planet.ships))
+            aim = self.plan_shot(planet.id, target.id, ships)
+            if aim is None:
+                seeded = self.best_probe_aim(planet.id, target.id, ships)
+                if seeded is None:
+                    continue
+                _, aim = seeded
             my_t = min(my_t, aim[1])
 
         enemy_t = 10**9
         for planet in self.enemy_planets:
-            seeded = self.best_probe_aim(planet.id, target.id, max(1, int(planet.ships)))
-            if seeded is None:
-                continue
-            _, aim = seeded
+            ships = max(1, int(planet.ships))
+            aim = self.plan_shot(planet.id, target.id, ships)
+            if aim is None:
+                seeded = self.best_probe_aim(planet.id, target.id, ships)
+                if seeded is None:
+                    continue
+                _, aim = seeded
             enemy_t = min(enemy_t, aim[1])
 
         cached = (my_t, enemy_t)
@@ -1181,6 +1787,80 @@ class WorldModel:
             extra_arrivals=extra_arrivals,
         )
 
+    def ships_needed_to_capture_and_hold(
+        self,
+        target_id,
+        arrival_turn,
+        hold_until,
+        planned_commitments=None,
+        extra_arrivals=(),
+        upper_bound=None,
+    ):
+        planned_commitments = planned_commitments or {}
+        extra_arrivals = tuple(extra_arrivals)
+        arrival_turn = max(1, int(math.ceil(arrival_turn)))
+        hold_until = max(arrival_turn, int(math.ceil(hold_until)))
+
+        base_need = self.min_ships_to_own_at(
+            target_id,
+            arrival_turn,
+            self.player,
+            planned_commitments=planned_commitments,
+            extra_arrivals=extra_arrivals,
+            upper_bound=upper_bound,
+        )
+        if base_need <= 0:
+            return base_need
+
+        relevant_enemy_arrival = any(
+            arrival_turn < int(math.ceil(eta)) <= hold_until
+            and owner not in (-1, self.player)
+            and ships > 0
+            for eta, owner, ships in self.arrivals_by_planet.get(target_id, [])
+        )
+        if (
+            not relevant_enemy_arrival
+            and not planned_commitments.get(target_id)
+            and not extra_arrivals
+        ):
+            return base_need
+
+        def holds_with(ships):
+            timeline = self.projected_timeline(
+                target_id,
+                hold_until,
+                planned_commitments=planned_commitments,
+                extra_arrivals=extra_arrivals
+                + ((arrival_turn, self.player, int(ships)),),
+            )
+            for turn in range(arrival_turn, hold_until + 1):
+                if timeline["owner_at"].get(turn) != self.player:
+                    return False
+            return True
+
+        if upper_bound is not None:
+            hi = max(1, int(upper_bound))
+            if not holds_with(hi):
+                return hi + 1
+        else:
+            hi = max(1, base_need)
+            search_cap = self._ownership_search_cap(hold_until)
+            while hi <= search_cap and not holds_with(hi):
+                hi *= 2
+            if hi > search_cap:
+                hi = search_cap
+                if not holds_with(hi):
+                    return hi + 1
+
+        lo = max(1, base_need)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if holds_with(mid):
+                hi = mid
+            else:
+                lo = mid + 1
+        return lo
+
 # ============================================================
 # Strategy
 # ============================================================
@@ -1201,10 +1881,13 @@ def nearest_sources_to_target(target, sources, top_k):
 def min_legal_reaction_time(target, sources, world):
     best = 10**9
     for src in sources:
-        seeded = world.best_probe_aim(src.id, target.id, max(1, int(src.ships)))
-        if seeded is None:
-            continue
-        _, aim = seeded
+        ships = max(1, int(src.ships))
+        aim = world.plan_shot(src.id, target.id, ships)
+        if aim is None:
+            seeded = world.best_probe_aim(src.id, target.id, ships)
+            if seeded is None:
+                continue
+            _, aim = seeded
         best = min(best, aim[1])
     return best
 
@@ -1221,6 +1904,1914 @@ def candidate_time_valid(target, turns, world, remaining_buffer):
         if turns >= life or turns > COMET_MAX_CHASE_TURNS:
             return False
     return True
+
+
+def initial_owner_of(planet, world):
+    initial = world.initial_by_id.get(planet.id)
+    return initial.owner if initial is not None else planet.owner
+
+
+def low_value_fortress_target(planet, world):
+    initial = world.initial_by_id.get(planet.id)
+    if initial is None:
+        return False
+    if initial.owner != -1 or int(initial.ships) < LOW_VALUE_FORTRESS_MIN_SHIPS:
+        return False
+    if int(initial.production) <= 1:
+        return True
+    return (
+        low_production_home_profile(world)
+        and int(initial.production) <= LOW_VALUE_FORTRESS_PROD_MAX
+    )
+
+
+def is_original_home(planet, world):
+    return initial_owner_of(planet, world) == world.player
+
+
+def is_profile_home(planet):
+    return planet.id in PROFILE_HOME_IDS
+
+
+def captured_age(planet, world):
+    captured_at = PROFILE_CAPTURED_AT.get(planet.id)
+    if captured_at is None:
+        return None
+    return max(0, int(world.step) - int(captured_at))
+
+
+def fresh_neutral_core_source_lock(planet, world):
+    if world.step > FRESH_CORE_SOURCE_LOCK_TURN_LIMIT:
+        return False
+    if planet.production < FRESH_CORE_SOURCE_LOCK_PROD_MIN:
+        return False
+    if initial_owner_of(planet, world) != -1:
+        return False
+    age = captured_age(planet, world)
+    if age is None or age > FRESH_CORE_SOURCE_LOCK_TURNS:
+        return False
+
+    eta, stack = enemy_pressure_to_planet(
+        planet,
+        world,
+        FRESH_CORE_SOURCE_LOCK_THREAT_HORIZON,
+    )
+    if (
+        eta <= FRESH_CORE_SOURCE_LOCK_THREAT_TURN
+        and stack >= max(FRESH_CORE_SOURCE_LOCK_STACK_FLOOR, int(planet.production) * 3)
+    ):
+        return True
+
+    fleet_eta, fleet_stack = enemy_fleet_pressure_to_planet(
+        planet,
+        world,
+        min(PREDICTED_FLEET_THREAT_HORIZON, FRESH_CORE_SOURCE_LOCK_THREAT_HORIZON),
+    )
+    return (
+        fleet_eta is not None
+        and fleet_eta <= FRESH_CORE_SOURCE_LOCK_THREAT_TURN
+        and fleet_stack >= max(FRESH_CORE_SOURCE_LOCK_STACK_FLOOR, int(planet.production) * 3)
+    )
+
+
+def low_home_close_heavy_core_profile(world):
+    if not low_production_home_profile(world):
+        return False
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None]
+    for home in homes:
+        for target in world.initial_by_id.values():
+            if target.id == home.id:
+                continue
+            if target.production < CORE_PRODUCTION:
+                continue
+            if int(target.ships) < FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_SHIPS:
+                continue
+            if planet_distance(home, target) <= FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_DIST:
+                return True
+    return False
+
+
+def low_home_rich_core_profile(world):
+    if not low_production_home_profile(world):
+        return False
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production <= 1]
+    for home in homes:
+        nearby_cores = 0
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < CORE_PRODUCTION:
+                continue
+            if int(target.ships) > LOW_HOME_RICH_CORE_MAX_SHIPS:
+                continue
+            if planet_distance(home, target) <= LOW_HOME_RICH_CORE_DIST:
+                nearby_cores += 1
+        if nearby_cores >= LOW_HOME_RICH_CORE_MIN_COUNT:
+            return True
+    return False
+
+
+def low_home_close_cheap_p4_profile(world):
+    if not low_production_home_profile(world):
+        return False
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production <= 1]
+    for home in homes:
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production != CORE_PRODUCTION:
+                continue
+            if int(target.ships) > OPENING_LOCAL_LOW_HOME_CHEAP_P4_SHIPS:
+                continue
+            if planet_distance(home, target) <= OPENING_LOCAL_LOW_HOME_CHEAP_P4_DIST:
+                return True
+    return False
+
+
+def core_passive_boost_profile(world):
+    home_productions = []
+    for home_id in PROFILE_HOME_IDS:
+        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        if home is not None:
+            home_productions.append(int(home.production))
+    if not home_productions:
+        return False
+    if any(prod == 3 for prod in home_productions):
+        return False
+    if any(prod <= 1 for prod in home_productions):
+        return low_home_close_heavy_core_profile(world)
+    return True
+
+
+def fresh_core_passive_strong_profile(world):
+    if low_home_close_heavy_core_profile(world):
+        return True
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None]
+    for home in homes:
+        for target in world.initial_by_id.values():
+            if target.id == home.id:
+                continue
+            if target.production < CORE_PRODUCTION + 1:
+                continue
+            if int(target.ships) < FRESH_CORE_PASSIVE_STRONG_SHIPS:
+                continue
+            target_dist = planet_distance(home, target)
+            if target_dist <= FRESH_CORE_PASSIVE_STRONG_DIST:
+                return True
+            if (
+                target.production >= CORE_PRODUCTION + 1
+                and target_dist <= FRESH_CORE_PASSIVE_STRONG_P5_DIST
+            ):
+                return True
+    return False
+
+
+def slow_high_home_core_profile(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production >= CORE_PRODUCTION + 1]
+    for home in homes:
+        has_heavy_core = False
+        has_cheap_core = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < CORE_PRODUCTION:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                int(target.ships) >= SLOW_HIGH_HOME_HEAVY_CORE_SHIPS
+                and distance <= SLOW_HIGH_HOME_HEAVY_CORE_DIST
+            ):
+                has_heavy_core = True
+            if (
+                int(target.ships) <= SLOW_HIGH_HOME_CHEAP_CORE_SHIPS
+                and distance <= SLOW_HIGH_HOME_CHEAP_CORE_DIST
+            ):
+                has_cheap_core = True
+        if has_heavy_core and not has_cheap_core:
+            return True
+    return False
+
+
+def fresh_neutral_core_passive_hold(planet, world):
+    if world.step > FRESH_CORE_PASSIVE_HOLD_TURN_LIMIT:
+        return 0
+    if planet.production < CORE_PRODUCTION:
+        return 0
+    if low_production_home_profile(world) and not low_home_close_heavy_core_profile(world):
+        return 0
+    if initial_owner_of(planet, world) != -1:
+        return 0
+    age = captured_age(planet, world)
+    strong_hold = fresh_core_passive_strong_profile(world)
+    active_turns = (
+        FRESH_CORE_PASSIVE_HOLD_TURNS
+        if strong_hold
+        else FRESH_CORE_PASSIVE_SOFT_HOLD_TURNS
+    )
+    if not strong_hold and slow_high_home_core_profile(world):
+        active_turns = max(active_turns, FRESH_CORE_PASSIVE_SLOW_HIGH_HOME_TURNS)
+    if age is None or age > active_turns:
+        return 0
+    if not world.enemy_planets:
+        return 0
+
+    enemy_dist = nearest_distance_to_set(planet.x, planet.y, world.enemy_planets)
+    if enemy_dist > FRESH_CORE_PASSIVE_HOLD_ENEMY_DIST:
+        return 0
+    if strong_hold:
+        keep = FRESH_CORE_PASSIVE_HOLD_BASE + int(planet.production) * FRESH_CORE_PASSIVE_HOLD_PROD_WEIGHT
+    else:
+        keep = FRESH_CORE_PASSIVE_SOFT_HOLD_BASE + int(planet.production) * FRESH_CORE_PASSIVE_SOFT_HOLD_PROD_WEIGHT
+    return min(int(planet.ships), keep)
+
+
+def fragile_profile_core_home(planet, world):
+    if not is_profile_home(planet) or planet.production < CORE_PRODUCTION:
+        return False
+    initial = world.initial_by_id.get(planet.id)
+    if initial is None:
+        return False
+    return int(initial.ships) <= FRAGILE_HOME_INITIAL_SHIPS
+
+
+def is_profile_defense_home(planet):
+    return is_profile_home(planet) and (
+        planet.production <= 1 or planet.production >= CORE_PRODUCTION
+    )
+
+
+def profile_home_mid_anchor(planet, world):
+    if not is_profile_home(planet) or planet.production != 2:
+        return False
+    features = opening_mainline_profile_features(planet, world)
+    return features["low_trap"] and features["p2_prize"] and not features["fast_p5"]
+
+
+def low_production_home_profile(world):
+    for home_id in PROFILE_HOME_IDS:
+        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        if home is not None and home.production <= 1:
+            return True
+    return False
+
+
+def current_low_production_home_profile(world):
+    for home in world.initial_by_id.values():
+        if home.owner == world.player and home.production <= 1:
+            return True
+    return False
+
+
+def rich_fast_opening_profile(world):
+    for home in world.initial_by_id.values():
+        if home.owner != world.player or home.production < RICH_FAST_HOME_MIN_PROD:
+            continue
+        nearby_cores = 0
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < DEFENSE_CORE_PRODUCTION:
+                continue
+            if int(target.ships) > RICH_FAST_CORE_MAX_SHIPS:
+                continue
+            if planet_distance(home, target) <= RICH_FAST_CORE_DIST:
+                nearby_cores += 1
+        if nearby_cores >= RICH_FAST_CORE_MIN_COUNT:
+            return True
+    return False
+
+
+def p3_heavy_prize_reaction_profile(world):
+    for home_id in PROFILE_HOME_IDS:
+        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        if home is None or home.production != P3_HEAVY_PRIZE_REACTION_HOME_PROD:
+            continue
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < P3_HEAVY_PRIZE_REACTION_MIN_PROD:
+                continue
+            if not (
+                P3_HEAVY_PRIZE_REACTION_MIN_SHIPS
+                <= int(target.ships)
+                <= P3_HEAVY_PRIZE_REACTION_MAX_SHIPS
+            ):
+                continue
+            if planet_distance(home, target) <= P3_HEAVY_PRIZE_REACTION_DIST:
+                return True
+    return False
+
+
+def is_core_planet(planet, world):
+    return is_original_home(planet, world) or planet.production >= CORE_PRODUCTION
+
+
+def is_defense_core_planet(planet, world):
+    return (
+        is_core_planet(planet, world)
+        or is_profile_defense_home(planet)
+        or profile_home_mid_anchor(planet, world)
+        or (
+            planet.production >= DEFENSE_CORE_PRODUCTION
+            and low_production_home_profile(world)
+        )
+    )
+
+
+def enemy_pressure_to_planet(planet, world, horizon):
+    best_eta = 10**9
+    strongest = 0
+    stacked = 0
+    threats = []
+    for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
+        ships = max(1, int(enemy.ships))
+        seeded = world.best_probe_aim(enemy.id, planet.id, ships)
+        if seeded is None:
+            continue
+        _, aim = seeded
+        eta = aim[1]
+        if eta > horizon:
+            continue
+        best_eta = min(best_eta, eta)
+        strongest = max(strongest, ships)
+        threats.append((eta, ships))
+
+    if threats:
+        threats.sort()
+        for idx, (eta, _) in enumerate(threats):
+            stacked = max(
+                stacked,
+                sum(ships for other_eta, ships in threats if abs(other_eta - eta) <= MULTI_ENEMY_STACK_WINDOW),
+            )
+
+    return best_eta, max(strongest, stacked)
+
+
+def fleet_predicted_hit_turn(fleet, planet, world, horizon):
+    dir_x = math.cos(fleet.angle)
+    dir_y = math.sin(fleet.angle)
+    speed = fleet_speed(fleet.ships)
+    prev_x, prev_y = fleet.x, fleet.y
+
+    for turn in range(1, horizon + 1):
+        cur_x = fleet.x + dir_x * speed * turn
+        cur_y = fleet.y + dir_y * speed * turn
+        if cur_x < 0.0 or cur_x > BOARD or cur_y < 0.0 or cur_y > BOARD:
+            break
+
+        pos = predict_target_position(
+            planet,
+            turn,
+            world.initial_by_id,
+            world.ang_vel,
+            world.comets,
+            world.comet_ids,
+        )
+        if pos is not None and point_to_segment_distance(
+            pos[0],
+            pos[1],
+            prev_x,
+            prev_y,
+            cur_x,
+            cur_y,
+        ) <= planet.radius:
+            return turn
+        prev_x, prev_y = cur_x, cur_y
+
+    return None
+
+
+def enemy_fleet_pressure_to_planet(planet, world, horizon):
+    threats = []
+    for fleet in world.fleets:
+        if fleet.owner == world.player:
+            continue
+        eta = fleet_predicted_hit_turn(fleet, planet, world, horizon)
+        if eta is None:
+            continue
+        threats.append((eta, int(fleet.ships)))
+
+    if not threats:
+        return None, 0
+
+    threats.sort()
+    best_eta = threats[0][0]
+    stacked = 0
+    for eta, _ in threats:
+        stacked = max(
+            stacked,
+            sum(ships for other_eta, ships in threats if abs(other_eta - eta) <= MULTI_ENEMY_STACK_WINDOW),
+        )
+    return best_eta, stacked
+
+
+def core_passive_keep(planet, world):
+    protected_home = is_profile_defense_home(planet)
+    low_home_core = (
+        planet.production >= DEFENSE_CORE_PRODUCTION
+        and low_production_home_profile(world)
+    )
+    if world.is_late or not (is_core_planet(planet, world) or protected_home or low_home_core):
+        return 0
+    keep_weight = CORE_PASSIVE_KEEP_PROD_WEIGHT
+    if p3_heavy_prize_reaction_profile(world):
+        keep_weight += P3_HEAVY_PRIZE_CORE_KEEP_BONUS
+    keep = CORE_PASSIVE_KEEP_BASE + int(planet.production * keep_weight)
+    if is_original_home(planet, world) or protected_home:
+        keep += CORE_PASSIVE_KEEP_BASE + ORIGINAL_HOME_EXTRA_KEEP
+        if is_profile_home(planet) and planet.production <= 1:
+            keep += LOW_PROD_PROFILE_HOME_EXTRA_KEEP
+    elif (
+        world.step < EARLY_P5_CORE_KEEP_TURN_LIMIT
+        and int(planet.production) >= 5
+        and opening_trap_signature_active(world)
+    ):
+        keep = max(keep, EARLY_P5_CORE_MIN_KEEP)
+    if core_passive_boost_profile(world):
+        boosted_keep = CORE_PASSIVE_BOOST_KEEP_BASE + int(planet.production) * CORE_PASSIVE_BOOST_PROD_WEIGHT
+        if (is_original_home(planet, world) or protected_home) and planet.production >= CORE_PRODUCTION:
+            boosted_keep += CORE_PASSIVE_BOOST_KEEP_BASE + ORIGINAL_HOME_EXTRA_KEEP
+        keep = max(keep, boosted_keep)
+    if (
+        low_home_rich_core_profile(world)
+        and initial_owner_of(planet, world) == -1
+        and planet.production >= CORE_PRODUCTION
+    ):
+        keep = max(
+            keep,
+            LOW_HOME_RICH_CORE_KEEP_BASE
+            + int(planet.production) * LOW_HOME_RICH_CORE_KEEP_PROD_WEIGHT,
+        )
+    keep = max(keep, fresh_neutral_core_passive_hold(planet, world))
+    return min(int(planet.ships), keep)
+
+
+def high_value_prep_core(planet, world):
+    if initial_owner_of(planet, world) != -1:
+        return False
+    initial = world.initial_by_id.get(planet.id)
+    initial_ships = int(initial.ships) if initial is not None else int(planet.ships)
+    return planet.production >= CORE_PRODUCTION + 1 or (
+        planet.production >= CORE_PRODUCTION and initial_ships <= 16
+    )
+
+
+def enemy_occupation_window_open(world):
+    threshold = (
+        ENEMY_OCCUPATION_TURN_FOUR_PLAYER
+        if world.is_four_player
+        else ENEMY_OCCUPATION_TURN_TWO_PLAYER
+    )
+    return world.step >= threshold
+
+
+def enemy_occupation_prep_window_open(world):
+    threshold = (
+        ENEMY_OCCUPATION_TURN_FOUR_PLAYER
+        if world.is_four_player
+        else ENEMY_OCCUPATION_TURN_TWO_PLAYER
+    )
+    return world.step >= max(0, threshold - ENEMY_OCCUPATION_PREP_TURNS)
+
+
+def midgame_attack_allowed(src, target, send, turns, world, modes):
+    if not enemy_occupation_window_open(world) or world.is_late:
+        return True
+    if target.owner == -1:
+        return True
+    if modes["is_finishing"]:
+        return True
+    if initial_owner_of(target, world) == world.player:
+        return True
+    if (
+        low_value_fortress_target(target, world)
+        and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+        and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+    ):
+        return False
+
+    min_send = MIDGAME_CORE_SOURCE_MIN_SEND if is_core_planet(src, world) else MIDGAME_HOSTILE_MIN_SEND
+    if target.production >= CORE_PRODUCTION:
+        min_send = min(min_send, MIDGAME_HOSTILE_MIN_SEND)
+    if world.step <= TRANSITION_HOSTILE_TURN_LIMIT and not modes["is_finishing"]:
+        transition_min = (
+            TRANSITION_CORE_HOSTILE_MIN_SEND
+            if is_core_planet(src, world)
+            else TRANSITION_HOSTILE_MIN_SEND
+        )
+        min_send = max(min_send, transition_min)
+        if world.my_prod <= world.enemy_prod + TRANSITION_HOSTILE_PROD_LEAD:
+            return int(send) >= min_send and target.production >= CORE_PRODUCTION
+    if (
+        turns >= MIDGAME_REMOTE_HOSTILE_TURNS
+        and initial_owner_of(target, world) != world.player
+        and not modes["is_finishing"]
+    ):
+        remote_min = (
+            MIDGAME_REMOTE_HOSTILE_MIN_SEND
+            + int(target.production) * MIDGAME_REMOTE_HOSTILE_PROD_WEIGHT
+        )
+        min_send = max(min_send, remote_min)
+    return int(send) >= min_send
+
+
+def opening_target_score(src, target, world, arrival_turns=None):
+    distance = planet_distance(src, target)
+    if arrival_turns is None:
+        arrival_turns = distance / max(1.0, fleet_speed(max(1, int(target.ships) + 1)))
+
+    production_value = float(target.production) ** OPENING_SCORE_PROD_POWER
+    if world.is_static(target.id):
+        production_value *= OPENING_SCORE_STATIC_MULT
+
+    bridge_value = 0.0
+    for other in world.planets:
+        if other.id == target.id or other.owner == world.player:
+            continue
+        if other.production < max(OPENING_SCORE_BRIDGE_MIN_TARGET_PROD, target.production + 1):
+            continue
+        if planet_distance(target, other) <= OPENING_BRIDGE_RELIEF_RADIUS:
+            bridge_value = max(bridge_value, other.production - target.production)
+
+    cost = (
+        OPENING_SCORE_BASE_COST
+        + int(target.ships) * OPENING_SCORE_SHIP_WEIGHT
+        + arrival_turns * OPENING_SCORE_DISTANCE_WEIGHT
+    )
+    bridge_mult = OPENING_SCORE_BRIDGE_MULT
+    if target.production <= 1:
+        bridge_mult *= OPENING_SCORE_LOW_PROD_BRIDGE_MULT
+    return (production_value + bridge_value * bridge_mult) / max(1.0, cost)
+
+
+def opening_best_available_score(world, blocked_target=None):
+    best = 0.0
+    for source in world.my_planets:
+        for target in world.neutral_planets:
+            if blocked_target is not None and target.id == blocked_target.id:
+                continue
+            if target.id in world.comet_ids:
+                continue
+            best = max(best, opening_target_score(source, target, world))
+    return best
+
+
+def opening_fill_unlocked(world):
+    return (
+        world.is_opening
+        and world.step >= OPENING_FILL_STEP
+        and (world.my_prod >= OPENING_FILL_MIN_PROD or len(world.my_planets) >= OPENING_FILL_MIN_PLANETS)
+    )
+
+
+def opening_fill_target(target, world):
+    if (
+        not opening_fill_unlocked(world)
+        or target.owner != -1
+        or target.id in world.comet_ids
+        or int(target.ships) > OPENING_FILL_MAX_TARGET_SHIPS
+    ):
+        return False
+    my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+    if my_dist > OPENING_FILL_MAX_DIST:
+        return False
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    return enemy_dist >= my_dist - 4.0
+
+
+def opening_roi_multiplier(target, arrival_turns, world):
+    if not world.is_opening or target.owner != -1 or target.id in world.comet_ids:
+        return 1.0
+    if opening_fill_target(target, world):
+        return 1.0
+
+    my_sources = nearest_sources_to_target(target, world.my_planets, 1)
+    if not my_sources:
+        return 1.0
+    score = opening_target_score(my_sources[0], target, world, arrival_turns)
+    best = opening_best_available_score(world, blocked_target=target)
+    if best <= 0 or score >= best * OPENING_SCORE_LOW_VALUE_RATIO:
+        return 1.0
+    if target.production <= OPENING_LOW_ROI_MAX_PRODUCTION:
+        return OPENING_LOW_ROI_SCORE_MULT
+    if (
+        target.production <= OPENING_ROI_PRODUCTION_LIMIT
+        and int(target.ships) >= OPENING_WEAK_ROI_MIN_SHIPS
+    ):
+        return OPENING_WEAK_ROI_SCORE_MULT
+    return 1.0
+
+
+def opening_far_neutral_detour(target, arrival_turns, world):
+    if (
+        not world.is_opening
+        or world.step > OPENING_FAR_NEUTRAL_TURN_LIMIT
+        or target.owner != -1
+        or target.id in world.comet_ids
+    ):
+        return False
+
+    nearest_sources = nearest_sources_to_target(target, world.my_planets, 1)
+    if not nearest_sources:
+        return False
+    src = nearest_sources[0]
+    target_dist = planet_distance(src, target)
+    if target_dist <= OPENING_FAR_NEUTRAL_DIST and arrival_turns <= OPENING_FAR_NEUTRAL_TURNS:
+        return False
+
+    target_score = opening_target_score(src, target, world, arrival_turns)
+    local_best = opening_best_available_score(world, blocked_target=target)
+    return local_best > target_score * OPENING_FAR_NEUTRAL_LOCAL_ADVANTAGE
+
+
+def has_better_opening_target(world, blocked_target):
+    for source in world.my_planets:
+        for target in world.neutral_planets:
+            if target.id == blocked_target.id or target.id in world.comet_ids:
+                continue
+            if opening_target_score(source, target, world) > opening_target_score(source, blocked_target, world) / max(0.01, OPENING_SCORE_LOW_VALUE_RATIO):
+                return True
+    return False
+
+
+def poor_opening_target(target, world):
+    if (
+        not world.is_opening
+        or world.step > OPENING_QUALITY_GATE_TURN
+        or target.owner != -1
+        or target.id in world.comet_ids
+    ):
+        return False
+    if opening_fill_target(target, world):
+        return False
+    if (
+        target.production <= OPENING_BAD_TARGET_MAX_PROD
+        and has_better_opening_target(world, target)
+    ):
+        return True
+    if (
+        target.production <= OPENING_ROI_PRODUCTION_LIMIT
+        and int(target.ships) >= OPENING_WEAK_ROI_MIN_SHIPS
+        and opening_roi_multiplier(target, 1, world) <= OPENING_WEAK_ROI_SCORE_MULT
+    ):
+        return True
+    return opening_roi_multiplier(target, 1, world) <= OPENING_LOW_ROI_SCORE_MULT
+
+
+def opening_committed_target(src, world):
+    if (
+        not OPENING_COMMITTED_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_COMMIT_TURN_LIMIT
+        or src.production > OPENING_COMMIT_HOME_PROD_MAX
+    ):
+        return None
+
+    best = None
+    best_key = None
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if target.production < OPENING_COMMIT_MIN_TARGET_PROD:
+            continue
+        if int(target.ships) > OPENING_COMMIT_MAX_SHIPS:
+            continue
+
+        distance = planet_distance(src, target)
+        if distance > OPENING_COMMIT_MAX_DIST:
+            continue
+        score = opening_target_score(src, target, world)
+        if score < OPENING_COMMIT_MIN_SCORE:
+            continue
+        key = (-score, -target.production, int(target.ships), distance, target.id)
+        if best_key is None or key < best_key:
+            best_key = key
+            best = target
+    return best
+
+
+def opening_priority_source_keep(src, world):
+    keep = OPENING_PRIORITY_CORE_KEEP if is_core_planet(src, world) else OPENING_PRIORITY_HOME_KEEP
+    if is_profile_home(src):
+        keep = max(keep, OPENING_PRIORITY_HOME_KEEP)
+    return min(int(src.ships), keep)
+
+
+def opening_priority_profile_active(src, world):
+    if not is_profile_home(src) or int(src.production) != 3:
+        return False
+
+    has_low_trap = False
+    has_quality_prize = False
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        distance = planet_distance(src, target)
+        if (
+            target.production <= 1
+            and int(target.ships) >= OPENING_PRIORITY_TRAP_MIN_SHIPS
+            and distance <= OPENING_PRIORITY_TRAP_MAX_DIST
+        ):
+            has_low_trap = True
+        if (
+            target.production >= OPENING_PRIORITY_PRIZE_MIN_PROD
+            and int(target.ships) <= OPENING_PRIORITY_PRIZE_MAX_SHIPS
+            and distance <= OPENING_PRIORITY_PRIZE_MAX_DIST
+        ):
+            has_quality_prize = True
+    return has_low_trap and has_quality_prize
+
+
+def opening_trap_signature_active(world):
+    for home_id in PROFILE_HOME_IDS:
+        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        if home is None or int(home.production) != 3:
+            continue
+
+        has_low_trap = False
+        has_quality_prize = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                target.production <= 1
+                and int(target.ships) >= OPENING_PRIORITY_TRAP_MIN_SHIPS
+                and distance <= OPENING_PRIORITY_TRAP_MAX_DIST
+            ):
+                has_low_trap = True
+            if (
+                target.production >= OPENING_PRIORITY_PRIZE_MIN_PROD
+                and int(target.ships) <= OPENING_PRIORITY_PRIZE_MAX_SHIPS
+                and distance <= OPENING_PRIORITY_PRIZE_MAX_DIST
+            ):
+                has_quality_prize = True
+        if has_low_trap and has_quality_prize:
+            return True
+    return False
+
+
+def opening_heavy_core_trap_profile(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production >= CORE_PRODUCTION]
+    for home in homes:
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1 or target.id in world.comet_ids:
+                continue
+            if (
+                target.production >= CORE_PRODUCTION
+                and int(target.ships) >= OPENING_HEAVY_PRIZE_MIN_SHIPS
+                and planet_distance(home, target) <= 16.0
+            ):
+                return True
+    return False
+
+
+def opening_heavy_core_trap_target(target, world):
+    if not opening_heavy_core_trap_profile(world):
+        return False
+    if target.production < CORE_PRODUCTION or int(target.ships) < OPENING_HEAVY_PRIZE_MIN_SHIPS:
+        return False
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None]
+    return any(planet_distance(home, target) <= 16.0 for home in homes)
+
+
+def opening_priority_plan_shot(world, src, target, ships):
+    if target_can_move(target, world.initial_by_id, world.comet_ids):
+        aim = search_safe_intercept(
+            src,
+            target,
+            ships,
+            world.initial_by_id,
+            world.ang_vel,
+            world.comets,
+            world.comet_ids,
+        )
+        if aim is not None:
+            angle, _, path_target_x, path_target_y = aim
+            if world.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
+                return aim
+    return world.plan_shot(src.id, target.id, ships)
+
+
+def opening_anchor_has_fast_alternative(src, anchor, world):
+    for target in world.neutral_planets:
+        if target.id in (anchor.id, src.id) or target.id in world.comet_ids:
+            continue
+        if target.production < OPENING_ANCHOR_FAST_ALT_PROD:
+            continue
+        if int(target.ships) > OPENING_ANCHOR_FAST_ALT_MAX_SHIPS:
+            continue
+        if planet_distance(src, target) <= OPENING_ANCHOR_FAST_ALT_DIST:
+            return True
+    return False
+
+
+def opening_huge_prize_ship_threshold(world):
+    if low_production_home_profile(world):
+        return OPENING_HUGE_PRIZE_LOW_HOME_SHIPS
+    for home_id in PROFILE_HOME_IDS:
+        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        if home is None or home.production < CORE_PRODUCTION + 1:
+            continue
+        has_close_heavy_p4 = False
+        has_better_prize = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                target.production == CORE_PRODUCTION
+                and OPENING_HUGE_PRIZE_LOW_HOME_SHIPS <= int(target.ships) <= OPENING_HUGE_PRIZE_SHIPS
+                and distance <= 24.0
+            ):
+                has_close_heavy_p4 = True
+            if (
+                target.production >= CORE_PRODUCTION + 1
+                and int(target.ships) <= OPENING_HUGE_PRIZE_LOW_HOME_SHIPS
+                and distance <= 30.0
+            ):
+                has_better_prize = True
+        if has_close_heavy_p4 and has_better_prize:
+            return OPENING_HUGE_PRIZE_CLOSE_TRAP_SHIPS
+    return OPENING_HUGE_PRIZE_SHIPS
+
+
+def opening_anchor_candidates(src, world):
+    if (
+        not OPENING_ANCHOR_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_ANCHOR_TURN_LIMIT
+        or len(world.my_planets) > OPENING_ANCHOR_MAX_PLANETS
+        or not is_profile_home(src)
+        or src.production < OPENING_ANCHOR_MIN_HOME_PROD
+    ):
+        return []
+
+    keep = min(int(src.ships), OPENING_ANCHOR_HOME_KEEP)
+    available_now = max(0, int(src.ships) - keep)
+    future_cap = available_now + int(src.production) * OPENING_ANCHOR_MAX_WAIT
+    candidates = []
+
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if target.production < OPENING_ANCHOR_MIN_PROD:
+            continue
+        if not (OPENING_ANCHOR_MIN_SHIPS <= int(target.ships) <= OPENING_ANCHOR_MAX_SHIPS):
+            continue
+        distance = planet_distance(src, target)
+        if distance > OPENING_ANCHOR_MAX_DIST:
+            continue
+        if opening_anchor_has_fast_alternative(src, target, world):
+            continue
+
+        probe_ships = min(
+            max(1, future_cap),
+            int(target.ships) + OPENING_ANCHOR_MARGIN,
+        )
+        aim = opening_priority_plan_shot(world, src, target, probe_ships)
+        if aim is None:
+            continue
+        _, turns, _, _ = aim
+        if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+            continue
+        needed = world.min_ships_to_own_at(
+            target.id,
+            turns,
+            world.player,
+            upper_bound=max(1, future_cap),
+        )
+        desired = max(needed, int(target.ships) + OPENING_ANCHOR_MARGIN)
+        if needed <= 0 or desired > future_cap:
+            continue
+        wait = 0
+        if desired > available_now:
+            wait = int(math.ceil((desired - available_now) / max(1, int(src.production))))
+        if wait > OPENING_ANCHOR_MAX_WAIT:
+            continue
+        score = target.production / max(1.0, int(target.ships) + distance * 0.55 + wait * 2.0)
+        candidates.append((score, wait, desired, target, turns))
+
+    candidates.sort(
+        key=lambda item: (
+            -item[0],
+            item[1],
+            -int(item[3].production),
+            int(item[3].ships),
+            item[4],
+            item[3].id,
+        )
+    )
+    return candidates
+
+
+def build_opening_anchor_moves(world):
+    for src in sorted(world.my_planets, key=lambda planet: (not is_profile_home(planet), planet.id)):
+        candidates = opening_anchor_candidates(src, world)
+        if not candidates:
+            continue
+
+        _, wait, desired, target, _ = candidates[0]
+        if wait > 0:
+            return []
+
+        send = min(max(0, int(src.ships) - OPENING_ANCHOR_HOME_KEEP), desired)
+        if send < desired:
+            return []
+        aim = opening_priority_plan_shot(world, src, target, send)
+        if aim is None:
+            continue
+        angle, _, _, _ = aim
+        return [[src.id, float(angle), int(send)]]
+
+    return None
+
+
+def opening_mainline_source_keep(src, world):
+    keep = OPENING_MAINLINE_CORE_KEEP if is_core_planet(src, world) else OPENING_MAINLINE_HOME_KEEP
+    if is_profile_home(src):
+        keep = max(keep, OPENING_MAINLINE_HOME_KEEP)
+    return min(int(src.ships), keep)
+
+
+def opening_mainline_score(src, target, needed, turns, wait_turns, world):
+    production_value = float(target.production) ** OPENING_MAINLINE_PROD_POWER
+    if world.is_static(target.id):
+        production_value *= OPENING_SCORE_STATIC_MULT
+    if target.production <= 1:
+        production_value *= OPENING_MAINLINE_LOW_PROD_MULT
+
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    my_dist = planet_distance(src, target)
+    race_mult = 1.0
+    if enemy_dist + 5.0 < my_dist:
+        race_mult = 0.55
+    elif enemy_dist <= my_dist + 3.0:
+        race_mult = 0.82
+
+    cost = (
+        OPENING_MAINLINE_BASE_COST
+        + int(needed) * OPENING_MAINLINE_SHIP_WEIGHT
+        + int(turns) * OPENING_MAINLINE_TURN_WEIGHT
+        + int(wait_turns) * OPENING_MAINLINE_WAIT_WEIGHT
+    )
+    return production_value * race_mult / max(1.0, cost)
+
+
+def opening_mainline_source_inflight(src, world):
+    return any(
+        fleet.owner == world.player and fleet.from_planet_id == src.id
+        for fleet in world.fleets
+    )
+
+
+def opening_near_quality_source_keep(src, world):
+    keep = (
+        OPENING_NEAR_QUALITY_CORE_KEEP
+        if is_core_planet(src, world)
+        else OPENING_NEAR_QUALITY_HOME_KEEP
+    )
+    if is_profile_home(src):
+        keep = max(keep, OPENING_NEAR_QUALITY_HOME_KEEP)
+    return min(int(src.ships), keep)
+
+
+def opening_near_quality_target_allowed(src, target, world):
+    if target.owner != -1 or target.id in world.comet_ids:
+        return False
+    if target.production < OPENING_NEAR_QUALITY_MIN_PROD:
+        return False
+    distance = planet_distance(src, target)
+    if target.production >= CORE_PRODUCTION:
+        if int(target.ships) > OPENING_NEAR_QUALITY_CORE_MAX_SHIPS:
+            return False
+    elif target.production == 3:
+        if int(target.ships) > OPENING_NEAR_QUALITY_P3_MAX_SHIPS:
+            return False
+    else:
+        return False
+
+    if is_original_home(src, world) or is_profile_home(src):
+        max_dist = OPENING_NEAR_QUALITY_HOME_DIST
+    elif is_core_planet(src, world):
+        max_dist = OPENING_NEAR_QUALITY_CORE_DIST
+    else:
+        max_dist = OPENING_NEAR_QUALITY_CHAIN_DIST
+    if distance > max_dist:
+        return False
+
+    my_dist = distance
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    return enemy_dist + OPENING_NEAR_QUALITY_RACE_ALLOWANCE >= my_dist
+
+
+def opening_near_quality_home_bonus(target, world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None]
+    if not homes:
+        homes = [
+            planet
+            for planet in world.my_planets
+            if is_original_home(planet, world) or is_profile_home(planet)
+        ]
+    if not homes:
+        return 1.0
+
+    home_dist = min(planet_distance(home, target) for home in homes)
+    if home_dist >= OPENING_NEAR_QUALITY_HOME_BONUS_DIST:
+        return 1.0
+    pull = (OPENING_NEAR_QUALITY_HOME_BONUS_DIST - home_dist) / OPENING_NEAR_QUALITY_HOME_BONUS_DIST
+    bonus = OPENING_NEAR_QUALITY_HOME_BONUS_MAX * pull
+    if low_production_home_profile(world):
+        bonus *= 1.25
+    return 1.0 + max(0.0, bonus)
+
+
+def opening_near_quality_profile_active(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production >= CORE_PRODUCTION]
+    for home in homes:
+        has_close_prize = False
+        has_close_p3 = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1 or target.id in world.comet_ids:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                target.production >= CORE_PRODUCTION + 1
+                and int(target.ships) <= 12
+                and distance <= 20.0
+            ):
+                has_close_prize = True
+            if (
+                target.production == 3
+                and int(target.ships) <= OPENING_NEAR_QUALITY_P3_MAX_SHIPS
+                and distance <= 20.0
+            ):
+                has_close_p3 = True
+        if has_close_prize and has_close_p3:
+            return True
+    return False
+
+
+def build_opening_near_quality_moves(world):
+    if (
+        not (OPENING_NEAR_QUALITY_ENABLED or opening_near_quality_profile_active(world))
+        or not world.is_opening
+        or world.step > OPENING_NEAR_QUALITY_TURN_LIMIT
+        or len(world.my_planets) > OPENING_NEAR_QUALITY_MAX_PLANETS
+    ):
+        return None
+
+    candidates = []
+    for src in sorted(world.my_planets, key=lambda planet: (-int(planet.production), planet.id)):
+        if opening_mainline_source_inflight(src, world):
+            continue
+        keep = opening_near_quality_source_keep(src, world)
+        available_now = max(0, int(src.ships) - keep)
+        future_cap = available_now + int(src.production) * OPENING_NEAR_QUALITY_MAX_WAIT
+        if future_cap <= 0:
+            continue
+
+        for target in world.neutral_planets:
+            if my_incoming_ships_to(target, world) > 0:
+                continue
+            if not opening_near_quality_target_allowed(src, target, world):
+                continue
+
+            route_ships = max(1, min(100, int(target.ships) + OPENING_NEAR_QUALITY_MARGIN))
+            aim = opening_priority_plan_shot(world, src, target, route_ships)
+            if aim is None:
+                continue
+            _, turns, _, _ = aim
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+
+            need_cap = max(future_cap, int(target.ships) + OPENING_NEAR_QUALITY_MARGIN, 1)
+            needed = world.min_ships_to_own_at(
+                target.id,
+                turns,
+                world.player,
+                upper_bound=need_cap,
+            )
+            if needed <= 0 or needed > need_cap:
+                continue
+
+            margin = OPENING_NEAR_QUALITY_MARGIN
+            if target.production >= CORE_PRODUCTION:
+                margin += OPENING_NEAR_QUALITY_CORE_MARGIN
+            desired = max(needed, int(target.ships) + margin)
+            if desired > future_cap:
+                continue
+            if desired <= available_now:
+                wait_turns = 0
+            elif int(src.production) > 0:
+                wait_turns = int(math.ceil((desired - available_now) / max(1, int(src.production))))
+            else:
+                continue
+            if wait_turns > OPENING_NEAR_QUALITY_MAX_WAIT:
+                continue
+
+            score = opening_mainline_score(src, target, desired, turns, wait_turns, world)
+            score *= opening_near_quality_home_bonus(target, world)
+            score /= 1.0 + wait_turns * OPENING_MAINLINE_WAIT_PENALTY
+            if score < OPENING_NEAR_QUALITY_MIN_SCORE:
+                continue
+            candidates.append(
+                {
+                    "score": score,
+                    "src": src,
+                    "target": target,
+                    "needed": desired,
+                    "wait": wait_turns,
+                    "turns": turns,
+                    "available_now": available_now,
+                }
+            )
+
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: (
+            -item["score"],
+            item["wait"],
+            -int(item["target"].production),
+            int(item["target"].ships),
+            item["turns"],
+            item["target"].id,
+        )
+    )
+    best = candidates[0]
+    affordable = [item for item in candidates[:OPENING_NEAR_QUALITY_MAX_TARGETS] if item["needed"] <= item["available_now"]]
+    chosen = None
+    if affordable:
+        top_affordable = affordable[0]
+        if top_affordable["score"] >= best["score"] * OPENING_NEAR_QUALITY_ALT_AFFORDABLE_RATIO:
+            chosen = top_affordable
+        elif best["wait"] <= OPENING_NEAR_QUALITY_MAX_WAIT:
+            return []
+        else:
+            chosen = top_affordable
+    elif best["wait"] <= OPENING_NEAR_QUALITY_MAX_WAIT:
+        return []
+
+    if chosen is None:
+        return None
+
+    src = chosen["src"]
+    target = chosen["target"]
+    send = int(chosen["needed"])
+    aim = opening_priority_plan_shot(world, src, target, send)
+    if aim is None:
+        return None
+    angle, _, _, _ = aim
+    return [[src.id, float(angle), send]]
+
+
+def opening_local_quality_source_keep(src, world):
+    keep = (
+        OPENING_LOCAL_QUALITY_CORE_KEEP
+        if is_core_planet(src, world)
+        else OPENING_LOCAL_QUALITY_HOME_KEEP
+    )
+    if is_profile_home(src):
+        keep = max(keep, OPENING_LOCAL_QUALITY_HOME_KEEP)
+    return min(int(src.ships), keep)
+
+
+def opening_local_quality_profile_active(src, world):
+    if not is_profile_home(src):
+        return False
+    if src.production <= 1:
+        return False
+    if src.production == CORE_PRODUCTION:
+        return any(
+            target.owner == -1
+            and target.id not in world.comet_ids
+            and target.production >= CORE_PRODUCTION
+            and int(target.ships) <= OPENING_LOCAL_HIGH_HOME_CORE_SHIPS
+            and planet_distance(src, target) <= OPENING_LOCAL_HIGH_HOME_CORE_DIST
+            for target in world.initial_by_id.values()
+        )
+    if src.production == 3:
+        close_core = any(
+            target.owner == -1
+            and target.id not in world.comet_ids
+            and target.production >= CORE_PRODUCTION
+            and int(target.ships) <= OPENING_LOCAL_MID_HOME_CORE_BLOCK_SHIPS
+            and planet_distance(src, target) <= OPENING_LOCAL_MID_HOME_CORE_BLOCK_DIST
+            for target in world.initial_by_id.values()
+        )
+        if close_core:
+            return False
+        return any(
+            target.owner == -1
+            and target.id not in world.comet_ids
+            and target.production == 3
+            and int(target.ships) <= OPENING_LOCAL_MID_HOME_P3_SHIPS
+            and OPENING_LOCAL_MID_HOME_P3_MIN_DIST
+            <= planet_distance(src, target)
+            <= OPENING_LOCAL_MID_HOME_P3_DIST
+            for target in world.initial_by_id.values()
+        )
+    return False
+
+
+def opening_local_quality_target_allowed(src, target, world):
+    distance = planet_distance(src, target)
+    if src.production <= 1:
+        return False
+    if src.production == CORE_PRODUCTION:
+        return (
+            target.production >= CORE_PRODUCTION
+            and int(target.ships) <= OPENING_LOCAL_HIGH_HOME_CORE_SHIPS
+            and distance <= OPENING_LOCAL_HIGH_HOME_CORE_DIST
+        )
+    if src.production == 3:
+        return (
+            target.production == 3
+            and int(target.ships) <= OPENING_LOCAL_MID_HOME_P3_SHIPS
+            and OPENING_LOCAL_MID_HOME_P3_MIN_DIST <= distance <= OPENING_LOCAL_MID_HOME_P3_DIST
+        )
+    return False
+
+
+def build_opening_local_quality_moves(world):
+    if (
+        not OPENING_LOCAL_QUALITY_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_LOCAL_QUALITY_TURN_LIMIT
+    ):
+        return None
+
+    sources = [
+        planet
+        for planet in world.my_planets
+        if opening_local_quality_profile_active(planet, world)
+        and len(world.my_planets) <= OPENING_LOCAL_QUALITY_MAX_PLANETS
+    ]
+    if not sources:
+        return None
+
+    for src in sorted(sources, key=lambda planet: (-int(planet.production), planet.id)):
+        if opening_mainline_source_inflight(src, world):
+            return []
+        keep = opening_local_quality_source_keep(src, world)
+        available_now = max(0, int(src.ships) - keep)
+        future_cap = available_now + int(src.production) * OPENING_LOCAL_QUALITY_MAX_WAIT
+        if future_cap <= 0:
+            continue
+
+        candidates = []
+        for target in world.neutral_planets:
+            if target.id in world.comet_ids:
+                continue
+            if my_incoming_ships_to(target, world) > 0:
+                continue
+            if not opening_local_quality_target_allowed(src, target, world):
+                continue
+            route_ships = max(1, min(100, int(target.ships) + OPENING_LOCAL_QUALITY_MARGIN))
+            aim = opening_priority_plan_shot(world, src, target, route_ships)
+            if aim is None:
+                continue
+            _, turns, _, _ = aim
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+            need_cap = max(future_cap, int(target.ships) + OPENING_LOCAL_QUALITY_MARGIN, 1)
+            needed = world.min_ships_to_own_at(
+                target.id,
+                turns,
+                world.player,
+                upper_bound=need_cap,
+            )
+            if needed <= 0 or needed > need_cap:
+                continue
+            margin = OPENING_LOCAL_QUALITY_MARGIN
+            if target.production >= CORE_PRODUCTION:
+                margin += OPENING_LOCAL_QUALITY_CORE_MARGIN
+            desired = max(needed, int(target.ships) + margin)
+            if desired > future_cap:
+                continue
+            if desired <= available_now:
+                wait_turns = 0
+            else:
+                wait_turns = int(math.ceil((desired - available_now) / max(1, int(src.production))))
+            if wait_turns > OPENING_LOCAL_QUALITY_MAX_WAIT:
+                continue
+
+            score = opening_mainline_score(src, target, desired, turns, wait_turns, world)
+            candidates.append(
+                {
+                    "score": score,
+                    "target": target,
+                    "needed": desired,
+                    "turns": turns,
+                    "wait": wait_turns,
+                }
+            )
+
+        if not candidates:
+            continue
+        candidates.sort(
+            key=lambda item: (
+                -item["score"],
+                item["wait"],
+                -int(item["target"].production),
+                int(item["target"].ships),
+                item["turns"],
+                item["target"].id,
+            )
+        )
+        chosen = candidates[0]
+        if chosen["needed"] > available_now:
+            return []
+        send = int(chosen["needed"])
+        aim = opening_priority_plan_shot(world, src, chosen["target"], send)
+        if aim is None:
+            continue
+        angle, _, _, _ = aim
+        return [[src.id, float(angle), send]]
+
+    return None
+
+
+def opening_mainline_profile_features(src, world):
+    features = {
+        "cheap_p2": 0,
+        "two_step_p2": 0,
+        "close_core": False,
+        "low_trap": False,
+        "p2_prize": False,
+        "fast_p5": False,
+        "fallback_low": False,
+        "near_quality": False,
+        "p3_core_prize": False,
+    }
+    for target in world.initial_by_id.values():
+        if target.id == src.id or target.owner != -1 or target.id in world.comet_ids:
+            continue
+        distance = planet_distance(src, target)
+        if (
+            target.production == 2
+            and int(target.ships) <= OPENING_MAINLINE_LOW_HOME_CHEAP_P2_SHIPS
+            and distance <= OPENING_MAINLINE_LOW_HOME_CHEAP_P2_DIST
+        ):
+            features["cheap_p2"] += 1
+        if (
+            target.production == 2
+            and int(target.ships) <= OPENING_MAINLINE_LOW_HOME_TWO_STEP_SHIPS
+            and distance <= OPENING_MAINLINE_LOW_HOME_TWO_STEP_DIST
+        ):
+            features["two_step_p2"] += 1
+        if (
+            target.production >= CORE_PRODUCTION
+            and int(target.ships) <= OPENING_MAINLINE_CLOSE_CORE_SHIPS
+            and distance <= OPENING_MAINLINE_CLOSE_CORE_DIST
+        ):
+            features["close_core"] = True
+        if (
+            target.production <= 1
+            and int(target.ships) >= OPENING_MAINLINE_P2_TRAP_SHIPS
+            and distance <= OPENING_MAINLINE_P2_TRAP_DIST
+        ):
+            features["low_trap"] = True
+        if (
+            target.production == CORE_PRODUCTION
+            and int(target.ships) <= OPENING_MAINLINE_P2_PRIZE_SHIPS
+            and distance <= OPENING_MAINLINE_P2_PRIZE_DIST
+        ):
+            features["p2_prize"] = True
+        if (
+            target.production >= CORE_PRODUCTION + 1
+            and int(target.ships) <= OPENING_MAINLINE_P2_FAST_P5_SHIPS
+            and distance <= OPENING_MAINLINE_P2_FAST_P5_DIST
+        ):
+            features["fast_p5"] = True
+        if (
+            target.production <= 1
+            and int(target.ships) <= OPENING_MAINLINE_P2_FALLBACK_LOW_SHIPS
+            and distance <= OPENING_MAINLINE_P2_FALLBACK_LOW_DIST
+        ):
+            features["fallback_low"] = True
+        if (
+            target.production >= 2
+            and int(target.ships) <= OPENING_MAINLINE_P2_QUALITY_SHIPS
+            and distance <= OPENING_MAINLINE_P2_QUALITY_DIST
+        ):
+            features["near_quality"] = True
+        if (
+            target.production >= CORE_PRODUCTION
+            and int(target.ships) <= OPENING_MAINLINE_P3_CORE_SHIPS
+            and OPENING_MAINLINE_P3_CORE_MIN_DIST <= distance <= OPENING_MAINLINE_P3_CORE_DIST
+        ):
+            features["p3_core_prize"] = True
+    return features
+
+
+def opening_mainline_profile_active(src, world):
+    if not is_profile_home(src):
+        return False
+
+    features = opening_mainline_profile_features(src, world)
+    if src.production <= 1:
+        if features["close_core"]:
+            return False
+        return features["cheap_p2"] > 0
+    if src.production == 2:
+        if features["fast_p5"]:
+            return False
+        return (features["low_trap"] and features["p2_prize"]) or (
+            features["fallback_low"] and not features["near_quality"]
+        )
+    if src.production == 3:
+        return features["p3_core_prize"]
+    return False
+
+
+def opening_mainline_planet_limit(src, world):
+    features = opening_mainline_profile_features(src, world)
+    if src.production <= 1 and features["two_step_p2"] >= 2:
+        return 2
+    return OPENING_MAINLINE_MAX_PLANETS
+
+
+def opening_mainline_low_fallback_active(src, world):
+    if src.production != 2:
+        return False
+    features = opening_mainline_profile_features(src, world)
+    return features["fallback_low"] and not features["near_quality"]
+
+
+def opening_mainline_target_candidates(src, world):
+    if (
+        not OPENING_MAINLINE_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_MAINLINE_TURN_LIMIT
+        or len(world.my_planets) > opening_mainline_planet_limit(src, world)
+        or not opening_mainline_profile_active(src, world)
+    ):
+        return []
+
+    keep = opening_mainline_source_keep(src, world)
+    available_now = max(0, int(src.ships) - keep)
+    production = max(0, int(src.production))
+    future_cap = available_now + production * OPENING_MAINLINE_MAX_WAIT
+    if future_cap <= 0:
+        return []
+
+    candidates = []
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if my_incoming_ships_to(target, world) > 0:
+            continue
+        min_target_prod = 1 if opening_mainline_low_fallback_active(src, world) else OPENING_MAINLINE_MIN_TARGET_PROD
+        if int(target.production) < min_target_prod:
+            continue
+        if opening_fill_target(target, world):
+            continue
+
+        route_ships = max(1, min(100, int(target.ships) + OPENING_MAINLINE_MARGIN))
+        aim = opening_priority_plan_shot(world, src, target, route_ships)
+        if aim is None:
+            continue
+        _, turns, _, _ = aim
+        if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+            continue
+
+        need_cap = max(future_cap, int(target.ships) + OPENING_MAINLINE_MARGIN, 1)
+        needed = world.min_ships_to_own_at(
+            target.id,
+            turns,
+            world.player,
+            upper_bound=need_cap,
+        )
+        if needed <= 0 or needed > need_cap:
+            continue
+
+        target_margin = OPENING_MAINLINE_MARGIN
+        if target.production >= CORE_PRODUCTION:
+            target_margin += OPENING_MAINLINE_CORE_EXTRA_MARGIN
+        desired = max(needed, int(target.ships) + target_margin)
+        if desired > future_cap:
+            continue
+        if desired <= available_now:
+            wait_turns = 0
+        elif production > 0:
+            wait_turns = int(math.ceil((desired - available_now) / max(1, production)))
+        else:
+            continue
+        if wait_turns > OPENING_MAINLINE_MAX_WAIT:
+            continue
+
+        score = opening_mainline_score(src, target, desired, turns, wait_turns, world)
+        score /= 1.0 + wait_turns * OPENING_MAINLINE_WAIT_PENALTY
+        min_score = (
+            OPENING_MAINLINE_FALLBACK_LOW_MIN_SCORE
+            if opening_mainline_low_fallback_active(src, world)
+            else OPENING_MAINLINE_MIN_SCORE
+        )
+        if score < min_score:
+            continue
+
+        candidates.append(
+            {
+                "score": score,
+                "target": target,
+                "turns": turns,
+                "needed": desired,
+                "wait": wait_turns,
+                "available_now": available_now,
+            }
+        )
+
+    candidates.sort(
+        key=lambda item: (
+            -item["score"],
+            item["wait"],
+            -int(item["target"].production),
+            int(item["target"].ships),
+            item["turns"],
+            item["target"].id,
+        )
+    )
+    return candidates
+
+
+def build_opening_mainline_moves(world):
+    if (
+        not OPENING_MAINLINE_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_MAINLINE_TURN_LIMIT
+    ):
+        return None
+
+    source_order = sorted(
+        [
+            planet
+            for planet in world.my_planets
+            if opening_mainline_profile_active(planet, world)
+            and len(world.my_planets) <= opening_mainline_planet_limit(planet, world)
+        ],
+        key=lambda planet: (-int(planet.production), -int(planet.ships), planet.id),
+    )
+    if not source_order:
+        return None
+
+    for src in source_order:
+        if opening_mainline_source_inflight(src, world):
+            return []
+        keep = opening_mainline_source_keep(src, world)
+        available_now = max(0, int(src.ships) - keep)
+        candidates = opening_mainline_target_candidates(src, world)
+        if not candidates:
+            continue
+
+        best = candidates[0]
+        affordable = [item for item in candidates if item["needed"] <= available_now]
+        chosen = None
+        if affordable:
+            top_affordable = affordable[0]
+            if top_affordable["score"] >= best["score"] * OPENING_MAINLINE_ALT_AFFORDABLE_RATIO:
+                chosen = top_affordable
+            elif (
+                world.step <= OPENING_MAINLINE_WAIT_TURN_LIMIT
+                and best["wait"] <= OPENING_MAINLINE_MAX_WAIT
+            ):
+                return []
+            else:
+                chosen = top_affordable
+        elif (
+            world.step <= OPENING_MAINLINE_WAIT_TURN_LIMIT
+            and best["wait"] <= OPENING_MAINLINE_MAX_WAIT
+        ):
+            return []
+
+        if chosen is None:
+            continue
+
+        target = chosen["target"]
+        send = min(available_now, int(chosen["needed"]))
+        if send < int(chosen["needed"]):
+            continue
+        aim = opening_priority_plan_shot(world, src, target, send)
+        if aim is None:
+            continue
+        angle, _, _, _ = aim
+        return [[src.id, float(angle), int(send)]]
+
+    return None
+
+
+def opening_priority_target_candidates(src, world):
+    trap_profile = opening_priority_profile_active(src, world)
+    keep = opening_priority_source_keep(src, world)
+    available_now = max(0, int(src.ships) - keep)
+    production = max(0, int(src.production))
+    future_cap = max(available_now, available_now + production * OPENING_PRIORITY_MAX_WAIT)
+    candidates = []
+
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if int(target.production) < OPENING_PRIORITY_MIN_TARGET_PROD:
+            continue
+        if trap_profile and int(target.production) < OPENING_PRIORITY_PRIZE_MIN_PROD:
+            continue
+        if opening_fill_target(target, world):
+            continue
+
+        route_ships = max(1, min(80, int(target.ships) + 1))
+        aim = opening_priority_plan_shot(world, src, target, route_ships)
+        if aim is None:
+            continue
+        _, turns, _, _ = aim
+        if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+            continue
+
+        need_cap = max(future_cap, int(target.ships) + 1, 1)
+        needed = world.min_ships_to_own_at(
+            target.id,
+            turns,
+            world.player,
+            upper_bound=need_cap,
+        )
+        if needed <= 0 or needed > need_cap:
+            continue
+
+        if needed <= available_now:
+            wait_turns = 0
+        elif production > 0:
+            wait_turns = int(math.ceil((needed - available_now) / max(1, production)))
+        else:
+            continue
+        if wait_turns > OPENING_PRIORITY_MAX_WAIT:
+            continue
+
+        score = opening_target_score(src, target, world, turns + wait_turns)
+        score /= 1.0 + wait_turns * OPENING_PRIORITY_WAIT_PENALTY
+        if score < OPENING_PRIORITY_MIN_SCORE:
+            continue
+
+        candidates.append(
+            {
+                "score": score,
+                "target": target,
+                "turns": turns,
+                "needed": needed,
+                "wait": wait_turns,
+                "available_now": available_now,
+            }
+        )
+
+    candidates.sort(
+        key=lambda item: (
+            -item["score"],
+            item["wait"],
+            -int(item["target"].production),
+            int(item["target"].ships),
+            item["turns"],
+            item["target"].id,
+        )
+    )
+    return candidates
+
+
+def build_opening_priority_moves(world):
+    if (
+        not OPENING_PRIORITY_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_PRIORITY_TURN_LIMIT
+        or len(world.my_planets) > OPENING_PRIORITY_MAX_PLANETS
+    ):
+        return None
+
+    source_order = sorted(
+        [
+            planet
+            for planet in world.my_planets
+            if opening_priority_profile_active(planet, world)
+        ],
+        key=lambda planet: (
+            0 if is_profile_home(planet) else 1,
+            -int(planet.production),
+            -int(planet.ships),
+            planet.id,
+        ),
+    )
+    if not source_order:
+        return None
+
+    for src in source_order:
+        keep = opening_priority_source_keep(src, world)
+        available_now = max(0, int(src.ships) - keep)
+        if available_now <= 0:
+            continue
+
+        candidates = opening_priority_target_candidates(src, world)
+        if not candidates:
+            continue
+
+        best = candidates[0]
+        affordable = [item for item in candidates if item["needed"] <= available_now]
+        chosen = None
+        if affordable:
+            top_affordable = affordable[0]
+            if top_affordable["score"] >= best["score"] * OPENING_PRIORITY_ALT_AFFORDABLE_RATIO:
+                chosen = top_affordable
+            elif (
+                world.step <= OPENING_PRIORITY_WAIT_TURN_LIMIT
+                and best["wait"] <= OPENING_PRIORITY_MAX_WAIT
+                and best["score"] >= top_affordable["score"] * OPENING_PRIORITY_WAIT_ADVANTAGE
+            ):
+                return []
+            else:
+                chosen = top_affordable
+        elif (
+            world.step <= OPENING_PRIORITY_WAIT_TURN_LIMIT
+            and best["wait"] <= OPENING_PRIORITY_MAX_WAIT
+        ):
+            return []
+
+        if chosen is None:
+            continue
+
+        target = chosen["target"]
+        margin = min(
+            OPENING_PRIORITY_MARGIN_CAP,
+            NEUTRAL_MARGIN_BASE + int(target.production),
+        )
+        send = min(available_now, int(chosen["needed"]) + margin)
+        if send < int(chosen["needed"]):
+            continue
+        aim = opening_priority_plan_shot(world, src, target, send)
+        if aim is None:
+            continue
+        angle, _, _, _ = aim
+        return [[src.id, float(angle), int(send)]]
+
+    return None
+
+
+def opening_heavy_prize_source_available(src, world=None):
+    reserve = OPENING_HEAVY_PRIZE_RESERVE_BASE + int(src.production) * OPENING_HEAVY_PRIZE_RESERVE_PROD
+    if int(src.production) >= CORE_PRODUCTION:
+        reserve += 4
+    fresh_core_locked = world is not None and fresh_neutral_core_source_lock(src, world)
+    if fresh_core_locked:
+        reserve = max(reserve, FRESH_CORE_SOURCE_LOCK_KEEP)
+    available = max(0, int(src.ships) - reserve)
+    if fresh_core_locked:
+        available = min(
+            available,
+            int(max(0, int(src.ships) - reserve) * FRESH_CORE_SOURCE_LOCK_FRACTION),
+        )
+    return available
+
+
+def my_incoming_ships_to(target, world):
+    return sum(
+        int(ships)
+        for _, owner, ships in world.arrivals_by_planet.get(target.id, [])
+        if owner == world.player and ships > 0
+    )
+
+
+def build_opening_heavy_prize_moves(world):
+    if (
+        not world.is_opening
+        or world.step < OPENING_HEAVY_PRIZE_PLAN_START
+        or world.step > OPENING_HEAVY_PRIZE_PLAN_END
+        or len(world.my_planets) < 3
+        or world.my_prod < 16
+    ):
+        return None
+
+    candidates = []
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if target.production < OPENING_HEAVY_PRIZE_MIN_PROD:
+            continue
+        if int(target.ships) < OPENING_HEAVY_PRIZE_MIN_SHIPS:
+            continue
+        if opening_heavy_core_trap_target(target, world):
+            continue
+        if my_incoming_ships_to(target, world) >= int(target.ships) + 1:
+            continue
+        my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+        enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+        if enemy_dist + 10.0 < my_dist:
+            continue
+        score = target.production / max(1.0, int(target.ships) + my_dist * 0.65)
+        candidates.append((score, target, my_dist))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (-item[0], -int(item[1].production), item[2], item[1].id))
+
+    for _, target, _ in candidates[:3]:
+        options = []
+        for src in world.my_planets:
+            if is_core_planet(src, world):
+                fleet_eta, fleet_stack = enemy_fleet_pressure_to_planet(
+                    src,
+                    world,
+                    OPENING_HEAVY_PRIZE_SOURCE_THREAT_HORIZON,
+                )
+                if (
+                    fleet_eta is not None
+                    and fleet_stack >= max(8, int(src.production) * 3)
+                ):
+                    continue
+            available = opening_heavy_prize_source_available(src, world)
+            if available < OPENING_HEAVY_PRIZE_MIN_SOURCE:
+                continue
+            send_probe = min(available, max(OPENING_HEAVY_PRIZE_MIN_SOURCE, int(target.ships) + 1))
+            aim = world.plan_shot(src.id, target.id, send_probe)
+            if aim is None:
+                continue
+            angle, turns, _, _ = aim
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+            options.append((turns, -available, src, available, angle))
+
+        if len(options) < 2:
+            continue
+        options.sort()
+        selected = options[:OPENING_HEAVY_PRIZE_MAX_SOURCES]
+        total_available = sum(item[3] for item in selected)
+        joint_turn = max(item[0] for item in selected)
+        need = world.min_ships_to_own_at(
+            target.id,
+            joint_turn,
+            world.player,
+            upper_bound=total_available,
+        )
+        prize_margin = (
+            OPENING_HEAVY_TRAP_MARGIN
+            if opening_heavy_core_trap_profile(world)
+            else OPENING_HEAVY_PRIZE_MARGIN
+        )
+        if int(target.ships) >= opening_huge_prize_ship_threshold(world):
+            prize_margin = max(prize_margin, OPENING_HUGE_PRIZE_MARGIN)
+        desired = max(need + prize_margin, int(target.ships) + 1)
+        if need <= 0 or total_available < desired:
+            continue
+
+        remaining = desired
+        moves = []
+        ordered = sorted(selected, key=lambda item: (item[0], item[2].id))
+        for idx, (turns, _, src, available, _) in enumerate(ordered):
+            rest = sum(item[3] for item in ordered[idx + 1 :])
+            send = min(available, max(0, remaining - rest))
+            if send <= 0:
+                continue
+            aim = world.plan_shot(src.id, target.id, send)
+            if aim is None:
+                moves = []
+                break
+            angle, _, _, _ = aim
+            moves.append([src.id, float(angle), int(send)])
+            remaining -= send
+        if remaining <= 0 and moves:
+            return moves
+
+    return None
 
 
 def stacked_enemy_proactive_keep(planet, world):
@@ -1326,29 +3917,145 @@ def build_policy_state(world, deadline=None):
         if expired():
             break
         exact_keep = world.keep_needed_map.get(planet.id, 0)
+        defense_horizon = (
+            AGGRESSIVE_DEFENSE_HORIZON
+            if AGGRESSIVE_DEFENSE_ENABLED
+            else PROACTIVE_DEFENSE_HORIZON
+        )
+        defense_ratio = (
+            AGGRESSIVE_DEFENSE_RATIO
+            if AGGRESSIVE_DEFENSE_ENABLED
+            else PROACTIVE_DEFENSE_RATIO
+        )
 
         proactive_keep = 0
-        for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
-            enemy_aim = world.plan_shot(enemy.id, planet.id, max(1, int(enemy.ships)))
-            if enemy_aim is None:
-                continue
-            enemy_eta = enemy_aim[1]
-            if enemy_eta > PROACTIVE_DEFENSE_HORIZON:
-                continue
-            proactive_keep = max(
-                proactive_keep,
-                int(enemy.ships * PROACTIVE_DEFENSE_RATIO),
-            )
-        proactive_keep = max(proactive_keep, stacked_enemy_proactive_keep(planet, world))
+        occupation_window_open = enemy_occupation_window_open(world)
+        prep_window_open = enemy_occupation_prep_window_open(world)
+        prep_core = high_value_prep_core(planet, world)
+        predictive_defense_allowed = not (
+            world.my_prod >= world.enemy_prod + 6
+            and world.my_total >= world.enemy_total * 1.05
+        )
+        predicted_enemy_eta = None
+        predicted_enemy_stack = 0
+        if prep_window_open:
+            for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
+                enemy_aim = world.plan_shot(enemy.id, planet.id, max(1, int(enemy.ships)))
+                if enemy_aim is None:
+                    continue
+                enemy_eta = enemy_aim[1]
+                ratio = defense_ratio
+                active_horizon = defense_horizon
+                if is_defense_core_planet(planet, world):
+                    active_horizon = max(active_horizon, CORE_THREAT_HORIZON)
+                elif not occupation_window_open:
+                    continue
+                if not occupation_window_open and not prep_core:
+                    continue
+                if enemy_eta > active_horizon:
+                    continue
+                if is_defense_core_planet(planet, world) and enemy_eta <= CORE_THREAT_HORIZON:
+                    ratio = max(ratio, CORE_THREAT_RATIO)
+                    if enemy_eta <= CORE_URGENT_THREAT_TURN:
+                        ratio = max(ratio, CORE_URGENT_THREAT_RATIO)
+                proactive_keep = max(
+                    proactive_keep,
+                    int(enemy.ships * ratio),
+                )
+            if occupation_window_open or prep_core:
+                proactive_keep = max(proactive_keep, stacked_enemy_proactive_keep(planet, world))
+            if occupation_window_open or prep_core:
+                proactive_keep = max(proactive_keep, core_passive_keep(planet, world))
+            fleet_horizon = defense_horizon
+            if is_defense_core_planet(planet, world):
+                fleet_horizon = max(fleet_horizon, CORE_THREAT_HORIZON)
+            fleet_horizon = min(fleet_horizon, PREDICTED_FLEET_THREAT_HORIZON)
+            if predictive_defense_allowed:
+                predicted_enemy_eta, predicted_enemy_stack = enemy_fleet_pressure_to_planet(
+                    planet,
+                    world,
+                    fleet_horizon,
+                )
+                if predicted_enemy_eta is not None:
+                    fleet_ratio = defense_ratio
+                    if is_defense_core_planet(planet, world):
+                        fleet_ratio = max(fleet_ratio, CORE_THREAT_RATIO)
+                        if predicted_enemy_eta <= CORE_URGENT_THREAT_TURN:
+                            fleet_ratio = max(fleet_ratio, CORE_URGENT_THREAT_RATIO)
+                    proactive_keep = max(proactive_keep, int(predicted_enemy_stack * fleet_ratio))
 
         reserve[planet.id] = min(int(planet.ships), max(exact_keep, proactive_keep))
-        attack_budget[planet.id] = max(0, int(planet.ships) - reserve[planet.id])
+        available = max(0, int(planet.ships) - reserve[planet.id])
+        fall_turn = world.fall_turn_map.get(planet.id)
+        first_enemy = world.first_enemy_map.get(planet.id)
+        if predicted_enemy_eta is not None:
+            first_enemy = (
+                predicted_enemy_eta
+                if first_enemy is None
+                else min(first_enemy, predicted_enemy_eta)
+            )
+        meaningful_predicted_threat = predicted_enemy_stack >= max(8, int(planet.production) * 3)
+        if (
+            (occupation_window_open or prep_core)
+            and
+            fall_turn is not None
+            and fall_turn <= SOURCE_LOCK_FALL_TURNS
+            and (
+                planet.production >= SOURCE_LOCK_MIN_PRODUCTION
+                or is_original_home(planet, world)
+                or is_profile_defense_home(planet)
+            )
+        ):
+            available = 0
+        elif (
+            (occupation_window_open or prep_core)
+            and is_defense_core_planet(planet, world)
+            and first_enemy is not None
+            and first_enemy <= CORE_VISIBLE_THREAT_TURN
+            and (
+                world.first_enemy_map.get(planet.id) is not None
+                or meaningful_predicted_threat
+            )
+        ):
+            available = int(available * CORE_THREATENED_ATTACK_FRACTION)
+        elif (
+            (occupation_window_open or prep_core)
+            and predictive_defense_allowed
+            and (
+                fragile_profile_core_home(planet, world)
+                or (
+                    is_defense_core_planet(planet, world)
+                    and world.enemy_prod >= world.my_prod + CORE_SOURCE_PRESSURE_PROD_DEFICIT
+                )
+            )
+        ):
+            pressure_eta, pressure_stack = enemy_pressure_to_planet(
+                planet,
+                world,
+                CORE_THREAT_HORIZON,
+            )
+            pressure_stack_floor = (
+                int(planet.production) * FRAGILE_HOME_SOURCE_THREAT_STACK_MULT
+                if fragile_profile_core_home(planet, world)
+                else int(planet.production) * CORE_SOURCE_PRESSURE_STACK_MULT
+            )
+            if (
+                pressure_eta <= CORE_VISIBLE_THREAT_TURN
+                and pressure_stack >= max(
+                    20,
+                    pressure_stack_floor,
+                )
+            ):
+                available = int(available * CORE_SOURCE_PRESSURE_ATTACK_FRACTION)
+
+        attack_budget[planet.id] = available
 
     return {
         "indirect_wealth_map": indirect_wealth_map,
         "reserve": reserve,
         "attack_budget": attack_budget,
         "reaction_time_map": reaction_time_map,
+        "local_neutral_opportunity": local_neutral_opportunity(world),
     }
 
 
@@ -1383,6 +4090,63 @@ def build_modes(world):
     }
 
 
+def p3_close_mirror_profile(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production == 3]
+    if not homes:
+        return False
+    for home in homes:
+        has_close_p3 = False
+        has_close_core = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                target.production == 3
+                and int(target.ships) <= P3_CLOSE_MIRROR_SHIPS
+                and distance <= P3_CLOSE_MIRROR_DIST
+            ):
+                has_close_p3 = True
+            if (
+                target.production >= CORE_PRODUCTION
+                and int(target.ships) <= P3_CLOSE_MIRROR_CORE_BLOCK_SHIPS
+                and distance <= P3_CLOSE_MIRROR_CORE_BLOCK_DIST
+            ):
+                has_close_core = True
+        if has_close_p3 and not has_close_core:
+            return True
+    return False
+
+
+def medium_p5_home_profile(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production == CORE_PRODUCTION]
+    for home in homes:
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < CORE_PRODUCTION + 1:
+                continue
+            if not (MEDIUM_P5_HOME_MIN_SHIPS <= int(target.ships) <= MEDIUM_P5_HOME_MAX_SHIPS):
+                continue
+            if planet_distance(home, target) <= MEDIUM_P5_HOME_DIST:
+                return True
+    return False
+
+
+def core_defense_score_mult(world):
+    if medium_p5_home_profile(world):
+        return MEDIUM_P5_HOME_CORE_DEFENSE_SCORE_MULT
+    return CORE_DEFENSE_SCORE_MULT
+
+
 def is_safe_neutral(target, policy):
     if target.owner != -1:
         return False
@@ -1397,11 +4161,349 @@ def is_contested_neutral(target, policy):
     return abs(my_t - enemy_t) <= CONTESTED_NEUTRAL_MARGIN
 
 
+def local_neutral_multiplier(target, world, policy):
+    if target.owner != -1 or target.id in world.comet_ids:
+        return 1.0
+
+    my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+    if my_dist > LOCAL_NEUTRAL_OUTER_DIST:
+        return 1.0
+
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    proximity = (LOCAL_NEUTRAL_OUTER_DIST - my_dist) / LOCAL_NEUTRAL_OUTER_DIST
+    affordability = max(0.2, (LOCAL_NEUTRAL_SOFT_SHIPS - int(target.ships)) / LOCAL_NEUTRAL_SOFT_SHIPS)
+    production_pull = min(1.0, target.production / 4.0)
+    enemy_race = 1.0
+    if enemy_dist < my_dist - 3.0:
+        enemy_race = 0.45
+    elif enemy_dist <= my_dist + 4.0:
+        enemy_race = 0.75
+
+    bonus = LOCAL_NEUTRAL_MAX_BONUS * proximity * affordability * production_pull * enemy_race
+    return 1.0 + max(0.0, bonus)
+
+
+def local_neutral_opportunity(world):
+    best = 0.0
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if target.production < 2:
+            continue
+        my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+        if my_dist > LOCAL_NEUTRAL_OUTER_DIST:
+            continue
+        enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+        if enemy_dist < my_dist - 3.0:
+            continue
+        proximity = (LOCAL_NEUTRAL_OUTER_DIST - my_dist) / LOCAL_NEUTRAL_OUTER_DIST
+        roi = target.production / max(1.0, int(target.ships) + 1.0)
+        best = max(best, proximity * roi * 10.0)
+    return best
+
+
+def valuable_neutral_remaining(world):
+    if world.step >= MIDGAME_NEUTRAL_FIRST_TURN_LIMIT:
+        return False
+    for target in world.neutral_planets:
+        if target.id in world.comet_ids:
+            continue
+        if target.production >= MIDGAME_NEUTRAL_FIRST_MIN_PROD:
+            return True
+    return False
+
+
+def midgame_control_window_open(world):
+    return (
+        MIDGAME_CONTROL_ENABLED
+        and MIDGAME_CONTROL_START_STEP <= world.step <= MIDGAME_CONTROL_END_STEP
+        and not world.is_late
+        and bool(world.my_planets)
+    )
+
+
+def midgame_control_pressure_margin(target, arrival_turns, world):
+    if not world.enemy_planets:
+        return 0
+
+    stack = 0
+    for enemy in nearest_sources_to_target(target, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
+        if enemy.id == target.id:
+            continue
+        ships = max(1, int(enemy.ships))
+        aim = world.plan_shot(enemy.id, target.id, ships)
+        if aim is None:
+            continue
+        eta = aim[1]
+        if eta <= MIDGAME_CONTROL_SOURCE_PRESSURE_WINDOW:
+            stack += max(0, ships - int(enemy.production) * 2)
+
+    if stack <= 0:
+        return 0
+    return min(
+        MIDGAME_CONTROL_SOURCE_PRESSURE_CAP,
+        max(0, int(stack * MIDGAME_CONTROL_SOURCE_PRESSURE_RATIO)),
+    )
+
+
+def post_capture_reaction_margin(target, arrival_turns, world):
+    profile_enabled = POST_CAPTURE_PROFILE_REACTION_ENABLED and p3_heavy_prize_reaction_profile(world)
+    if not (POST_CAPTURE_REACTION_ENABLED or profile_enabled):
+        return 0
+    if not profile_enabled and world.step < POST_CAPTURE_REACTION_START_STEP:
+        return 0
+    if not world.enemy_planets or world.is_late:
+        return 0
+    if current_low_production_home_profile(world):
+        return 0
+    if world.step < RICH_FAST_REACTION_SKIP_TURN and rich_fast_opening_profile(world):
+        return 0
+
+    pressure = 0
+    window_end = int(math.ceil(arrival_turns)) + POST_CAPTURE_REACTION_WINDOW
+    for enemy in nearest_sources_to_target(target, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
+        if enemy.id == target.id:
+            continue
+        ships = max(1, int(enemy.ships))
+        aim = world.plan_shot(enemy.id, target.id, ships)
+        if aim is None:
+            continue
+        eta = aim[1]
+        if eta > window_end:
+            continue
+        pressure += max(0, ships - int(enemy.production) * 2)
+
+    if pressure <= 0:
+        return 0
+    return min(
+        POST_CAPTURE_REACTION_CAP,
+        max(0, int(pressure * POST_CAPTURE_REACTION_RATIO)),
+    )
+
+
+def midgame_control_target_base(target, world):
+    if target.owner == world.player or target.id in world.comet_ids:
+        return None
+    if MIDGAME_CONTROL_NEUTRAL_ONLY and target.owner != -1:
+        return None
+    if (
+        low_value_fortress_target(target, world)
+        and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+        and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+    ):
+        return None
+
+    my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+
+    if target.production < MIDGAME_CONTROL_MIN_PRODUCTION:
+        cheap_local_fill = (
+            target.owner == -1
+            and world.step >= MIDGAME_CONTROL_CHEAP_START_STEP
+            and world.my_prod >= MIDGAME_CONTROL_CHEAP_MIN_MY_PROD
+            and int(target.ships) <= MIDGAME_CONTROL_CHEAP_MAX_SHIPS
+            and my_dist <= MIDGAME_CONTROL_CHEAP_MAX_DIST
+            and enemy_dist + MIDGAME_CONTROL_RACE_ALLOWANCE >= my_dist
+        )
+        if cheap_local_fill:
+            local_pull = max(0.0, (MIDGAME_CONTROL_CHEAP_MAX_DIST - my_dist) / MIDGAME_CONTROL_CHEAP_MAX_DIST)
+            return target.production * (1.0 + local_pull) * MIDGAME_CONTROL_CHEAP_BASE_MULT, my_dist, enemy_dist
+        if not (target.owner not in (-1, world.player) and initial_owner_of(target, world) == world.player):
+            return None
+
+    if target.owner == -1:
+        if my_dist > MIDGAME_CONTROL_OUTER_DIST:
+            return None
+        if enemy_dist + MIDGAME_CONTROL_RACE_ALLOWANCE < my_dist:
+            return None
+        local_pull = max(0.0, (MIDGAME_CONTROL_OUTER_DIST - my_dist) / MIDGAME_CONTROL_OUTER_DIST)
+        race_pull = 1.0 if enemy_dist >= my_dist else 0.72
+        base = target.production * (1.0 + local_pull) * race_pull
+    else:
+        if initial_owner_of(target, world) != world.player and my_dist > MIDGAME_CONTROL_OUTER_DIST:
+            return None
+        if int(target.ships) > max(72, world.my_total * 0.18) and initial_owner_of(target, world) != world.player:
+            return None
+        base = target.production * MIDGAME_CONTROL_HOSTILE_MULT
+        if initial_owner_of(target, world) == world.player:
+            base *= MIDGAME_CONTROL_RECLAIM_MULT
+
+    if target.production >= CORE_PRODUCTION:
+        base *= MIDGAME_CONTROL_CORE_MULT
+    return base, my_dist, enemy_dist
+
+
+def build_midgame_control_missions(world, policy, planned_commitments, modes, attack_left_fn, deadline=None):
+    if not midgame_control_window_open(world):
+        return []
+
+    def expired():
+        return deadline is not None and time.perf_counter() > deadline - OPTIONAL_PHASE_MIN_TIME
+
+    target_rows = []
+    for target in world.planets:
+        base = midgame_control_target_base(target, world)
+        if base is None:
+            continue
+        target_base, my_dist, enemy_dist = base
+        if target.owner == -1 and my_incoming_ships_to(target, world) >= int(target.ships) + 1:
+            continue
+        target_rows.append((-(target_base / max(1.0, int(target.ships) + my_dist * 0.45)), target, my_dist, enemy_dist))
+
+    if not target_rows:
+        return []
+
+    target_rows.sort(key=lambda item: (item[0], -int(item[1].production), int(item[1].ships), item[2], item[1].id))
+    missions = []
+
+    for _, target, my_dist, enemy_dist in target_rows[:MIDGAME_CONTROL_MAX_TARGETS]:
+        if expired():
+            break
+        per_target = 0
+        max_travel = (
+            MIDGAME_CONTROL_NEUTRAL_MAX_TRAVEL
+            if target.owner == -1
+            else MIDGAME_CONTROL_HOSTILE_MAX_TRAVEL
+        )
+        max_travel = min(max_travel, MIDGAME_CONTROL_MAX_TRAVEL)
+
+        for src in nearest_sources_to_target(target, world.my_planets, MIDGAME_CONTROL_MAX_SOURCES):
+            if expired():
+                return missions
+            if reserve_source_for_local_prize(src, target, world):
+                continue
+            src_available = attack_left_fn(src.id)
+            if src_available < MIDGAME_CONTROL_MIN_SOURCE_SHIPS:
+                continue
+
+            rough_hold = MIDGAME_CONTROL_HOLD_BASE + int(target.production) * MIDGAME_CONTROL_HOLD_PROD_WEIGHT
+            if target.owner == -1 and enemy_dist <= my_dist + MIDGAME_CONTROL_RACE_ALLOWANCE:
+                rough_hold += MIDGAME_CONTROL_HOLD_RACE_MARGIN
+            seed_send = min(
+                src_available,
+                max(MIDGAME_CONTROL_MIN_SOURCE_SHIPS, int(target.ships) + 1 + rough_hold),
+            )
+            aim = world.plan_shot(src.id, target.id, seed_send)
+            if aim is None:
+                continue
+            angle, turns, _, _ = aim
+            if turns > max_travel:
+                continue
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+
+            needed = world.min_ships_to_own_at(
+                target.id,
+                turns,
+                world.player,
+                planned_commitments=planned_commitments,
+                upper_bound=src_available,
+            )
+            if needed <= 0 or needed > src_available:
+                continue
+            if opening_filter(target, turns, needed, src_available, world, policy):
+                continue
+
+            hold_margin = rough_hold
+            if target.owner not in (-1, world.player) or enemy_dist <= my_dist + MIDGAME_CONTROL_RACE_ALLOWANCE:
+                hold_margin += midgame_control_pressure_margin(target, turns, world)
+
+            desired = max(
+                needed + hold_margin,
+                preferred_send(target, needed, turns, src_available, world, modes, policy),
+            )
+            if desired > src_available:
+                continue
+            if target.owner not in (-1, world.player) and not midgame_attack_allowed(src, target, desired, turns, world, modes):
+                continue
+
+            value = target_value(target, turns, "capture", world, modes, policy)
+            if value <= 0:
+                continue
+            score = apply_score_modifiers(
+                value / (desired + turns * ATTACK_COST_TURN_WEIGHT + 1.0),
+                target,
+                "capture",
+                world,
+            )
+            score *= MIDGAME_CONTROL_SCORE_MULT
+            if target.owner == -1:
+                score *= MIDGAME_CONTROL_NEUTRAL_MULT
+            if initial_owner_of(target, world) == world.player:
+                score *= MIDGAME_CONTROL_RECLAIM_MULT
+            min_score = (
+                MIDGAME_CONTROL_CHEAP_MIN_SCORE
+                if target.owner == -1 and target.production <= 1
+                else MIDGAME_CONTROL_MIN_SCORE
+            )
+            if score < min_score:
+                continue
+
+            option = ShotOption(
+                score=score,
+                src_id=src.id,
+                target_id=target.id,
+                angle=angle,
+                turns=turns,
+                needed=needed,
+                send_cap=int(desired),
+                mission="control",
+            )
+            missions.append(
+                Mission(
+                    kind="single",
+                    score=score,
+                    target_id=target.id,
+                    turns=turns,
+                    options=[option],
+                )
+            )
+            per_target += 1
+            if per_target >= MIDGAME_CONTROL_MAX_PER_TARGET:
+                break
+
+    return missions
+
+
 def opening_filter(target, arrival_turns, needed, src_available, world, policy):
     if not world.is_opening or target.owner != -1:
         return False
     if target.id in world.comet_ids:
         return False
+    if (
+        low_value_fortress_target(target, world)
+        and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+        and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+    ):
+        return True
+    if (
+        opening_heavy_core_trap_profile(world)
+        and target.production >= CORE_PRODUCTION
+        and int(target.ships) >= OPENING_HEAVY_PRIZE_MIN_SHIPS
+        and src_available < int(target.ships) + OPENING_HEAVY_TRAP_MARGIN
+    ):
+        return True
+    if (
+        target.production >= CORE_PRODUCTION
+        and int(target.ships) >= opening_huge_prize_ship_threshold(world)
+        and src_available < int(target.ships) + OPENING_HUGE_PRIZE_MARGIN
+    ):
+        return True
+    if opening_heavy_core_trap_target(target, world):
+        return True
+    if opening_fill_target(target, world):
+        if target.production <= 1 and (
+            needed > OPENING_FILL_LOW_PROD_MAX_NEEDED
+            or needed > int(target.ships) + OPENING_FILL_LOW_PROD_MAX_OVER_NEUTRAL
+        ):
+            return True
+        if target.production <= 2 and needed > OPENING_FILL_WEAK_PROD_MAX_NEEDED:
+            return True
+        return False
+    if poor_opening_target(target, world):
+        return True
+    if opening_far_neutral_detour(target, arrival_turns, world):
+        return True
     if world.is_static(target.id):
         return False
 
@@ -1430,6 +4532,74 @@ def opening_filter(target, arrival_turns, needed, src_available, world, policy):
     return arrival_turns > ROTATING_OPENING_MAX_TURNS or target.production <= ROTATING_OPENING_LOW_PROD
 
 
+def reserve_source_for_local_prize(src, target, world):
+    if not world.is_early or target.owner != -1 or target.id in world.comet_ids:
+        return False
+    src_radius = orbital_radius(src)
+    src_diag = abs((src.x - CENTER_X) - (src.y - CENTER_Y))
+    target_dist = planet_distance(src, target)
+    static_p2_reserve = (
+        is_static_planet(src)
+        and src.production == 2
+        and 42.0 <= src_radius <= 55.0
+        and src_diag <= 8.0
+    )
+    low_value_detour = target.production <= 1
+    far_detour = target.production <= 3 and target_dist >= 35.0
+
+    if not (static_p2_reserve or EDGE_AIM_ENABLED):
+        return False
+    if not (static_p2_reserve or low_value_detour or far_detour):
+        return False
+    if target.production >= LOCAL_PRIZE_MIN_PRODUCTION:
+        if not far_detour:
+            return False
+
+    future_budget = int(src.ships) + int(src.production) * LOCAL_PRIZE_RESERVE_TURNS
+    best_prize = None
+    best_key = None
+    required_production = LOCAL_PRIZE_MIN_PRODUCTION
+    if not far_detour:
+        required_production = max(
+            LOCAL_PRIZE_MIN_PRODUCTION,
+            target.production + LOCAL_PRIZE_PROD_GAP,
+        )
+
+    for prize in world.neutral_planets:
+        if prize.id == target.id or prize.id in world.comet_ids:
+            continue
+        if prize.production < required_production:
+            continue
+
+        prize_dist = planet_distance(src, prize)
+        if prize_dist > LOCAL_PRIZE_MAX_DIST:
+            continue
+        if int(prize.ships) + 1 > future_budget:
+            continue
+
+        enemy_dist = nearest_distance_to_set(prize.x, prize.y, world.enemy_planets)
+        if enemy_dist < prize_dist - LOCAL_PRIZE_ENEMY_LEAD_ALLOWANCE:
+            continue
+
+        prize_key = (
+            -prize.production,
+            int(prize.ships),
+            prize_dist,
+            prize.id,
+        )
+        if best_key is None or prize_key < best_key:
+            best_key = prize_key
+            best_prize = (prize, prize_dist)
+
+    if best_prize is None:
+        return False
+
+    prize, prize_dist = best_prize
+    if target.production <= 1:
+        return True
+    return target_dist > prize_dist + LOCAL_PRIZE_FAR_EXTRA_DIST
+
+
 def target_value(target, arrival_turns, mission, world, modes, policy):
     turns_profit = max(1, world.remaining_steps - arrival_turns)
     if target.id in world.comet_ids:
@@ -1448,14 +4618,52 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
 
     if target.owner not in (-1, world.player):
         value *= OPENING_HOSTILE_TARGET_VALUE_MULT if world.is_opening else HOSTILE_TARGET_VALUE_MULT
+        if initial_owner_of(target, world) == world.player:
+            value *= RECLAIM_HOME_VALUE_MULT
+        elif valuable_neutral_remaining(world) and not modes["is_finishing"]:
+            value *= (
+                MIDGAME_CORE_HOSTILE_WITH_NEUTRALS_MULT
+                if target.production >= CORE_PRODUCTION
+                else MIDGAME_HOSTILE_WITH_NEUTRALS_MULT
+            )
+        if (
+            low_value_fortress_target(target, world)
+            and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+            and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+        ):
+            value *= 0.22
 
     if target.owner == -1:
+        if (
+            low_value_fortress_target(target, world)
+            and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+            and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+        ):
+            value *= 0.18
+        value *= opening_roi_multiplier(target, arrival_turns, world)
         if is_safe_neutral(target, policy):
             value *= SAFE_NEUTRAL_VALUE_MULT
         elif is_contested_neutral(target, policy):
             value *= CONTESTED_NEUTRAL_VALUE_MULT
         if world.is_early:
+            value *= local_neutral_multiplier(target, world, policy)
+            local_pressure = policy.get("local_neutral_opportunity", 0.0)
+            my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
+            if (
+                local_pressure >= 1.2
+                and my_dist > FAR_NEUTRAL_OPPORTUNITY_DIST
+                and target.production <= 2
+            ):
+                value *= FAR_NEUTRAL_OPPORTUNITY_PENALTY
+        if world.is_early:
             value *= EARLY_NEUTRAL_VALUE_MULT
+            if (
+                LOCAL_OPENING_ENABLED
+                and target.production >= 2
+                and int(target.ships) <= 10
+                and nearest_distance_to_set(target.x, target.y, world.my_planets) <= 18.0
+            ):
+                value *= 1.8
 
     if target.id in world.comet_ids:
         value *= COMET_VALUE_MULT
@@ -1478,6 +4686,10 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
 
     if modes["is_finishing"] and target.owner not in (-1, world.player):
         value *= FINISHING_HOSTILE_VALUE_MULT
+    if target.owner not in (-1, world.player) and target.production >= CORE_PRODUCTION:
+        my_t, enemy_t = policy_reaction_times(target.id, policy)
+        if my_t <= enemy_t + 2:
+            value *= THREATENED_CORE_VALUE_MULT
     if modes["is_behind"] and target.owner == -1 and not world.is_static(target.id):
         value *= BEHIND_ROTATING_NEUTRAL_VALUE_MULT
     if modes["is_behind"] and target.owner == -1 and is_safe_neutral(target, policy):
@@ -1497,9 +4709,34 @@ def reinforce_value(target, hold_until, world, policy):
     return value * REINFORCE_VALUE_MULT
 
 
+def post_capture_enemy_stack(target, arrival_turns, world):
+    stack = 0
+    start = int(math.ceil(arrival_turns))
+    window = (
+        POST_CAPTURE_HIGH_PROD_HOLD_WINDOW
+        if target.production >= 5
+        else POST_CAPTURE_HOLD_WINDOW
+    )
+    end = start + window
+    for eta, owner, ships in world.arrivals_by_planet.get(target.id, []):
+        if owner == world.player:
+            continue
+        if start < eta <= end:
+            stack += int(ships)
+    return stack
+
+
 def preferred_send(target, base_needed, arrival_turns, src_available, world, modes, policy):
     send = max(base_needed, int(math.ceil(base_needed * modes["attack_margin_mult"])))
     margin = 0
+    if (
+        LEAN_OPENING_ENABLED
+        and world.is_early
+        and target.owner == -1
+        and target.production >= 3
+        and int(target.ships) <= 10
+    ):
+        return min(src_available, max(send, base_needed + 1))
     if target.owner == -1:
         margin += min(
             NEUTRAL_MARGIN_CAP,
@@ -1522,6 +4759,25 @@ def preferred_send(target, base_needed, arrival_turns, src_available, world, mod
         margin = max(0, margin - COMET_MARGIN_RELIEF)
     if modes["is_finishing"] and target.owner not in (-1, world.player):
         margin += FINISHING_HOSTILE_SEND_BONUS
+    if (
+        enemy_occupation_prep_window_open(world)
+        and target.owner != world.player
+        and (
+            target.owner not in (-1, world.player)
+            or target.production >= 3
+            or is_contested_neutral(target, policy)
+        )
+    ):
+        margin += post_capture_reaction_margin(target, arrival_turns, world)
+    if target.owner == -1 and target.production >= CORE_PRODUCTION:
+        followup_stack = post_capture_enemy_stack(target, arrival_turns, world)
+        if followup_stack > 0:
+            margin += min(
+                POST_CAPTURE_HOLD_MARGIN_CAP,
+                max(2, int(followup_stack * POST_CAPTURE_HOLD_RATIO) - int(target.production)),
+            )
+        if low_home_close_cheap_p4_profile(world):
+            margin += LOW_HOME_CLOSE_CHEAP_P4_EXTRA_MARGIN
     return min(src_available, send + margin)
 
 
@@ -1531,6 +4787,13 @@ def apply_score_modifiers(base_score, target, mission, world):
         score *= STATIC_TARGET_SCORE_MULT
     if world.is_early and target.owner == -1 and world.is_static(target.id):
         score *= EARLY_STATIC_NEUTRAL_SCORE_MULT
+    if (
+        world.is_opening
+        and target.owner == -1
+        and target.production >= OPENING_HEAVY_PRIZE_MIN_PROD
+        and int(target.ships) >= OPENING_HEAVY_PRIZE_MIN_SHIPS
+    ):
+        score *= OPENING_HEAVY_PRIZE_SCORE_MULT
     if world.is_four_player and target.owner == -1 and not world.is_static(target.id):
         score *= FOUR_PLAYER_ROTATING_NEUTRAL_SCORE_MULT
     if (
@@ -1715,6 +4978,153 @@ def settle_plan(
     return None
 
 
+def predict_enemy_arrivals(world, deadline=None):
+    if not ENEMY_PREDICTION_ENABLED or world.step > ENEMY_PREDICTION_MAX_STEP:
+        return {}
+    if len(world.planets) > HEAVY_ROUTE_PLANET_LIMIT:
+        return {}
+
+    def expired():
+        return deadline is not None and time.perf_counter() > deadline - OPTIONAL_PHASE_MIN_TIME
+
+    predicted = defaultdict(list)
+    enemy_owners = sorted(
+        owner
+        for owner in world.owner_strength
+        if owner not in (-1, world.player) and world.owner_strength[owner] > 0
+    )
+
+    for owner in enemy_owners:
+        if expired():
+            break
+
+        enemy_world = WorldModel(
+            player=owner,
+            step=world.step,
+            planets=world.planets,
+            fleets=world.fleets,
+            initial_by_id=world.initial_by_id,
+            ang_vel=world.ang_vel,
+            comets=world.comets,
+            comet_ids=world.comet_ids,
+        )
+        enemy_modes = build_modes(enemy_world)
+        enemy_policy = build_policy_state(enemy_world, deadline=deadline)
+        enemy_policy["predicted_enemy_arrivals"] = {}
+        enemy_commitments = defaultdict(list)
+
+        sources = sorted(
+            enemy_world.my_planets,
+            key=lambda planet: (-int(planet.ships), -int(planet.production), planet.id),
+        )[:ENEMY_PREDICTION_SOURCE_LIMIT]
+
+        for src in sources:
+            if expired():
+                break
+            src_available = enemy_policy["attack_budget"].get(src.id, 0)
+            if src_available < PARTIAL_SOURCE_MIN_SHIPS:
+                continue
+
+            targets = [
+                target
+                for target in enemy_world.planets
+                if target.id != src.id and target.owner != owner
+            ]
+            targets.sort(
+                key=lambda target: (
+                    planet_distance(src, target) / max(1, target.production),
+                    0 if target.owner == world.player else 1,
+                    -int(target.production),
+                    int(target.ships),
+                )
+            )
+
+            best = None
+            for target in targets[:ENEMY_PREDICTION_TARGET_LIMIT]:
+                if expired():
+                    break
+                seeded = enemy_world.best_probe_aim(
+                    src.id,
+                    target.id,
+                    src_available,
+                    hints=(int(target.ships) + 1,),
+                )
+                if seeded is None:
+                    continue
+
+                _, rough_aim = seeded
+                rough_turns = rough_aim[1]
+                if not candidate_time_valid(target, rough_turns, enemy_world, LATE_CAPTURE_BUFFER):
+                    continue
+
+                rough_needed = enemy_world.min_ships_to_own_at(
+                    target.id,
+                    rough_turns,
+                    owner,
+                    planned_commitments=enemy_commitments,
+                    upper_bound=src_available,
+                )
+                if rough_needed <= 0 or rough_needed > src_available:
+                    continue
+                if opening_filter(
+                    target,
+                    rough_turns,
+                    rough_needed,
+                    src_available,
+                    enemy_world,
+                    enemy_policy,
+                ):
+                    continue
+
+                send_guess = preferred_send(
+                    target,
+                    rough_needed,
+                    rough_turns,
+                    src_available,
+                    enemy_world,
+                    enemy_modes,
+                    enemy_policy,
+                )
+                plan = settle_plan(
+                    src,
+                    target,
+                    src_available,
+                    send_guess,
+                    enemy_world,
+                    enemy_commitments,
+                    enemy_modes,
+                    enemy_policy,
+                    mission="capture",
+                    max_iter=2,
+                )
+                if plan is None:
+                    continue
+
+                angle, turns, _, need, send = plan
+                if send < need:
+                    continue
+                value = target_value(target, turns, "capture", enemy_world, enemy_modes, enemy_policy)
+                if value <= 0:
+                    continue
+                score = apply_score_modifiers(
+                    value / (send + turns * ATTACK_COST_TURN_WEIGHT + 1.0),
+                    target,
+                    "capture",
+                    enemy_world,
+                )
+                if best is None or score > best[0]:
+                    best = (score, target.id, turns, send)
+
+            if best is None or best[0] <= ENEMY_PREDICTION_MIN_SCORE:
+                continue
+
+            _, target_id, turns, send = best
+            predicted[target_id].append((turns, owner, int(send)))
+            enemy_commitments[target_id].append((turns, owner, int(send)))
+
+    return dict(predicted)
+
+
 def settle_reinforce_plan(
     src,
     target,
@@ -1834,76 +5244,83 @@ def build_snipe_mission(src, target, src_available, world, planned_commitments, 
 
     best = None
     for enemy_eta in enemy_etas[:3]:
-        seeded = world.best_probe_aim(
-            src.id,
-            target.id,
-            src_available,
-            hints=(int(target.ships) + 1, int(target.ships) + 8),
-            anchor_turn=enemy_eta,
-            max_anchor_diff=1,
-        )
-        if seeded is None:
-            continue
-
-        probe, rough = seeded
-        sync_turn = max(rough[1], enemy_eta)
-        if target.id in world.comet_ids:
-            life = world.comet_life(target.id)
-            if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
+        delays = WAIT_STRIKE_DELAYS if WAIT_STRIKE_ENABLED and DELAYED_SNIPE_ENABLED else (0,)
+        for delay in delays:
+            desired_turn = enemy_eta + delay
+            seeded = world.best_probe_aim(
+                src.id,
+                target.id,
+                src_available,
+                hints=(int(target.ships) + 1, int(target.ships) + 8),
+                anchor_turn=desired_turn,
+                max_anchor_diff=1,
+            )
+            if seeded is None:
                 continue
 
-        plan = settle_plan(
-            src,
-            target,
-            src_available,
-            probe,
-            world,
-            planned_commitments,
-            modes,
-            policy,
-            mission="snipe",
-            eval_turn_fn=lambda turns, enemy_eta=enemy_eta: max(turns, enemy_eta),
-            anchor_turn=enemy_eta,
-        )
-        if plan is None:
-            continue
+            probe, rough = seeded
+            sync_turn = max(rough[1], desired_turn)
+            if target.id in world.comet_ids:
+                life = world.comet_life(target.id)
+                if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
+                    continue
 
-        angle, turns, sync_turn, need, send_pref = plan
-        if target.id in world.comet_ids:
-            life = world.comet_life(target.id)
-            if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
+            plan = settle_plan(
+                src,
+                target,
+                src_available,
+                probe,
+                world,
+                planned_commitments,
+                modes,
+                policy,
+                mission="snipe",
+                eval_turn_fn=lambda turns, desired_turn=desired_turn: max(turns, desired_turn),
+                anchor_turn=desired_turn,
+            )
+            if plan is None:
                 continue
 
-        value = target_value(target, sync_turn, "snipe", world, modes, policy)
-        if value <= 0:
-            continue
+            angle, turns, sync_turn, need, send_pref = plan
+            if opening_filter(target, turns, need, src_available, world, policy):
+                continue
+            if target.id in world.comet_ids:
+                life = world.comet_life(target.id)
+                if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
+                    continue
 
-        score = apply_score_modifiers(
-            value / (send_pref + sync_turn * SNIPE_COST_TURN_WEIGHT + 1.0),
-            target,
-            "snipe",
-            world,
-        )
-        option = ShotOption(
-            score=score,
-            src_id=src.id,
-            target_id=target.id,
-            angle=angle,
-            turns=turns,
-            needed=need,
-            send_cap=send_pref,
-            mission="snipe",
-            anchor_turn=enemy_eta,
-        )
-        mission_obj = Mission(
-            kind="snipe",
-            score=score,
-            target_id=target.id,
-            turns=sync_turn,
-            options=[option],
-        )
-        if best is None or mission_obj.score > best.score:
-            best = mission_obj
+            value = target_value(target, sync_turn, "snipe", world, modes, policy)
+            if value <= 0:
+                continue
+
+            score = apply_score_modifiers(
+                value / (send_pref + sync_turn * SNIPE_COST_TURN_WEIGHT + 1.0),
+                target,
+                "snipe",
+                world,
+            )
+            if delay:
+                score *= 1.04
+            option = ShotOption(
+                score=score,
+                src_id=src.id,
+                target_id=target.id,
+                angle=angle,
+                turns=turns,
+                needed=need,
+                send_cap=send_pref,
+                mission="snipe",
+                anchor_turn=desired_turn,
+            )
+            mission_obj = Mission(
+                kind="snipe",
+                score=score,
+                target_id=target.id,
+                turns=sync_turn,
+                options=[option],
+            )
+            if best is None or mission_obj.score > best.score:
+                best = mission_obj
 
     return best
 
@@ -1912,6 +5329,12 @@ def build_rescue_missions(world, policy, planned_commitments, modes):
     missions = []
 
     for target in world.my_planets:
+        if (
+            low_value_fortress_target(target, world)
+            and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+            and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+        ):
+            continue
         fall_turn = world.fall_turn_map.get(target.id)
         if fall_turn is None or fall_turn > DEFENSE_LOOKAHEAD_TURNS:
             continue
@@ -1956,6 +5379,14 @@ def build_rescue_missions(world, policy, planned_commitments, modes):
             if world.enemy_planets and nearest_distance_to_set(target.x, target.y, world.enemy_planets) < 22:
                 value *= DEFENSE_FRONTIER_SCORE_MULT
             score = value / (send_pref + turns * DEFENSE_COST_TURN_WEIGHT + 1.0)
+            if fall_turn <= URGENT_DEFENSE_TURN:
+                score *= URGENT_DEFENSE_SCORE_MULT
+            else:
+                score *= EARLY_DEFENSE_SCORE_MULT
+            if is_defense_core_planet(target, world):
+                score *= core_defense_score_mult(world)
+                if fall_turn <= CORE_VISIBLE_THREAT_TURN:
+                    score *= CORE_URGENT_DEFENSE_SCORE_MULT
 
             option = ShotOption(
                 score=score,
@@ -1985,6 +5416,12 @@ def build_recapture_missions(world, policy, planned_commitments, modes):
     missions = []
 
     for target in world.my_planets:
+        if (
+            low_value_fortress_target(target, world)
+            and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+            and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+        ):
+            continue
         fall_turn = world.fall_turn_map.get(target.id)
         if fall_turn is None or fall_turn > DEFENSE_LOOKAHEAD_TURNS:
             continue
@@ -2037,6 +5474,14 @@ def build_recapture_missions(world, policy, planned_commitments, modes):
                 value *= RECAPTURE_FRONTIER_MULT
             value *= RECAPTURE_VALUE_MULT
             score = value / (send_pref + turns * RECAPTURE_COST_TURN_WEIGHT + 1.0)
+            if fall_turn <= URGENT_DEFENSE_TURN:
+                score *= URGENT_DEFENSE_SCORE_MULT
+            else:
+                score *= EARLY_DEFENSE_SCORE_MULT
+            if is_defense_core_planet(target, world):
+                score *= core_defense_score_mult(world)
+                if fall_turn <= CORE_VISIBLE_THREAT_TURN:
+                    score *= CORE_URGENT_DEFENSE_SCORE_MULT
 
             option = ShotOption(
                 score=score,
@@ -2071,6 +5516,12 @@ def build_reinforce_missions(world, policy, planned_commitments, modes, inventor
         return missions
 
     for target in world.my_planets:
+        if (
+            low_value_fortress_target(target, world)
+            and world.step < LOW_VALUE_FORTRESS_IGNORE_UNTIL
+            and world.my_total < LOW_VALUE_FORTRESS_MIN_TOTAL
+        ):
+            continue
         fall_turn = world.fall_turn_map.get(target.id)
         if fall_turn is None:
             continue
@@ -2116,6 +5567,14 @@ def build_reinforce_missions(world, policy, planned_commitments, modes, inventor
             angle, turns, _, need, send_pref = plan
             value = reinforce_value(target, hold_until, world, policy)
             score = value / (send_pref + turns * REINFORCE_COST_TURN_WEIGHT + 1.0)
+            if fall_turn <= URGENT_DEFENSE_TURN:
+                score *= URGENT_DEFENSE_SCORE_MULT
+            else:
+                score *= EARLY_DEFENSE_SCORE_MULT
+            if is_defense_core_planet(target, world):
+                score *= core_defense_score_mult(world)
+                if fall_turn <= CORE_VISIBLE_THREAT_TURN:
+                    score *= CORE_URGENT_DEFENSE_SCORE_MULT
 
             option = ShotOption(
                 score=score,
@@ -2223,6 +5682,263 @@ def build_crash_exploit_missions(world, policy, planned_commitments, modes):
     return missions
 
 
+def heavy_assault_cluster_value(target, world):
+    value = target.production
+    for other in world.enemy_planets:
+        if other.id == target.id:
+            continue
+        if planet_distance(target, other) <= HEAVY_ASSAULT_CLUSTER_RADIUS:
+            value += other.production * HEAVY_ASSAULT_CLUSTER_PROD_WEIGHT
+    if initial_owner_of(target, world) == world.player:
+        value += target.production
+    return value
+
+
+def early_heavy_assault_profile(world):
+    homes = [
+        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
+        for home_id in PROFILE_HOME_IDS
+    ]
+    homes = [home for home in homes if home is not None and home.production == 2]
+    for home in homes:
+        has_medium_p5 = False
+        has_cheap_core = False
+        for target in world.initial_by_id.values():
+            if target.id == home.id or target.owner != -1:
+                continue
+            if target.production < CORE_PRODUCTION:
+                continue
+            distance = planet_distance(home, target)
+            if (
+                target.production >= CORE_PRODUCTION + 1
+                and int(target.ships) <= EARLY_HEAVY_P2_CORE_MAX_SHIPS
+                and distance <= EARLY_HEAVY_P2_CORE_DIST
+            ):
+                has_medium_p5 = True
+            if (
+                int(target.ships) <= EARLY_HEAVY_P2_CHEAP_CORE_SHIPS
+                and distance <= EARLY_HEAVY_P2_CHEAP_CORE_DIST
+            ):
+                has_cheap_core = True
+        if has_medium_p5 and not has_cheap_core:
+            return True
+    return False
+
+
+def build_heavy_assault_missions(world, policy, planned_commitments, modes, attack_left_fn):
+    early_profile = early_heavy_assault_profile(world)
+    low_home_rich_profile = low_home_rich_core_profile(world)
+    start_step = EARLY_PROFILE_HEAVY_ASSAULT_START_STEP if early_profile else HEAVY_ASSAULT_START_STEP
+    min_total_required = EARLY_PROFILE_HEAVY_ASSAULT_MIN_TOTAL if early_profile else HEAVY_ASSAULT_MIN_TOTAL
+    min_source_required = EARLY_PROFILE_HEAVY_ASSAULT_MIN_SOURCE if early_profile else HEAVY_ASSAULT_MIN_SOURCE_SHIPS
+    if low_home_rich_profile:
+        start_step = min(start_step, LOW_HOME_RICH_HEAVY_ASSAULT_START_STEP)
+        min_total_required = min(min_total_required, LOW_HOME_RICH_HEAVY_ASSAULT_MIN_TOTAL)
+        min_source_required = min(min_source_required, LOW_HOME_RICH_HEAVY_ASSAULT_MIN_SOURCE)
+    if (
+        not HEAVY_ASSAULT_ENABLED
+        or world.step < start_step
+        or world.is_late
+        or len(world.my_planets) < 3
+        or not world.enemy_planets
+    ):
+        return []
+
+    missions = []
+    targets = sorted(
+        world.enemy_planets,
+        key=lambda target: (
+            -heavy_assault_cluster_value(target, world),
+            initial_owner_of(target, world) != world.player,
+            planet_distance(
+                target,
+                min(world.my_planets, key=lambda src: planet_distance(src, target)),
+            ),
+            target.id,
+        ),
+    )[:6]
+
+    for target in targets:
+        options = []
+        for src in nearest_sources_to_target(target, world.my_planets, HEAVY_ASSAULT_MAX_SOURCES):
+            src_available = attack_left_fn(src.id)
+            if src_available < min_source_required:
+                continue
+
+            send_cap = src_available
+            seeded = world.best_probe_aim(
+                src.id,
+                target.id,
+                send_cap,
+                hints=(send_cap, max(min_source_required, int(target.ships) + 1)),
+            )
+            if seeded is None:
+                continue
+            _, aim = seeded
+            angle, turns, _, _ = aim
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+            if opening_filter(target, turns, int(target.ships) + 1, send_cap, world, policy):
+                continue
+            options.append(
+                ShotOption(
+                    score=send_cap / max(1.0, turns),
+                    src_id=src.id,
+                    target_id=target.id,
+                    angle=angle,
+                    turns=turns,
+                    needed=int(target.ships) + 1,
+                    send_cap=send_cap,
+                    mission="heavy_swarm",
+                )
+            )
+
+        if len(options) < 2:
+            continue
+
+        options.sort(key=lambda option: (-option.send_cap, option.turns, option.src_id))
+        top_options = options[:HEAVY_ASSAULT_MAX_SOURCES]
+        for size in (3, 2):
+            if len(top_options) < size:
+                continue
+            for combo in combinations(top_options, size):
+                turns = [option.turns for option in combo]
+                if max(turns) - min(turns) > HEAVY_ASSAULT_ETA_TOLERANCE:
+                    continue
+                joint_turn = max(turns)
+                total_cap = sum(option.send_cap for option in combo)
+                if total_cap < min_total_required:
+                    continue
+                need = world.min_ships_to_own_at(
+                    target.id,
+                    joint_turn,
+                    world.player,
+                    planned_commitments=planned_commitments,
+                    upper_bound=total_cap,
+                )
+                if need <= 0 or need > total_cap:
+                    continue
+
+                hold_margin = midgame_control_pressure_margin(target, joint_turn, world)
+                if target.production >= CORE_PRODUCTION:
+                    hold_margin += int(target.production) * 2
+                desired_total = min(
+                    total_cap,
+                    max(need + HEAVY_ASSAULT_OVERKILL + hold_margin, min_total_required),
+                )
+                cluster_value = heavy_assault_cluster_value(target, world)
+                value = target_value(target, joint_turn, "swarm", world, modes, policy)
+                value *= max(1.0, cluster_value / max(1.0, target.production))
+                score = apply_score_modifiers(
+                    value / (desired_total + joint_turn * ATTACK_COST_TURN_WEIGHT + 1.0),
+                    target,
+                    "swarm",
+                    world,
+                )
+                score *= HEAVY_ASSAULT_SCORE_MULT
+                if low_home_rich_profile:
+                    score *= LOW_HOME_RICH_HEAVY_ASSAULT_SCORE_MULT
+                if (
+                    world.enemy_prod >= world.my_prod + DEFICIT_HEAVY_ASSAULT_PROD_GAP
+                    and world.my_total >= DEFICIT_HEAVY_ASSAULT_MIN_TOTAL_SHIPS
+                ):
+                    score *= DEFICIT_HEAVY_ASSAULT_SCORE_MULT
+                missions.append(
+                    Mission(
+                        kind="heavy_swarm",
+                        score=score,
+                        target_id=target.id,
+                        turns=joint_turn,
+                        options=list(combo),
+                        min_total=desired_total,
+                    )
+                )
+                break
+
+    return missions
+
+
+def build_turtle_breakout_moves(world, policy):
+    if (
+        world.step < TURTLE_BREAKOUT_START_STEP
+        or world.is_late
+        or len(world.my_planets) > TURTLE_BREAKOUT_MAX_PLANETS
+        or world.my_total < TURTLE_BREAKOUT_MIN_TOTAL
+        or world.enemy_prod < world.my_prod + TURTLE_BREAKOUT_PROD_GAP
+        or not world.enemy_planets
+    ):
+        return None
+
+    targets = sorted(
+        world.enemy_planets,
+        key=lambda target: (
+            -heavy_assault_cluster_value(target, world),
+            -int(target.production),
+            nearest_distance_to_set(target.x, target.y, world.my_planets),
+            target.id,
+        ),
+    )[:4]
+
+    for target in targets:
+        options = []
+        for src in nearest_sources_to_target(target, world.my_planets, TURTLE_BREAKOUT_MAX_SOURCES):
+            keep = max(
+                policy["reserve"].get(src.id, 0),
+                int(src.ships * (1.0 - TURTLE_BREAKOUT_SOURCE_FRACTION)),
+            )
+            available = max(0, int(src.ships) - keep)
+            if available < TURTLE_BREAKOUT_MIN_SOURCE:
+                continue
+            aim = world.plan_shot(src.id, target.id, available)
+            if aim is None:
+                continue
+            angle, turns, _, _ = aim
+            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+                continue
+            options.append((turns, -available, src, available, angle))
+
+        if len(options) < 2:
+            continue
+        options.sort()
+        selected = options[:TURTLE_BREAKOUT_MAX_SOURCES]
+        joint_turn = max(item[0] for item in selected)
+        total_available = sum(item[3] for item in selected)
+        if total_available < TURTLE_BREAKOUT_MIN_TOTAL_SEND:
+            continue
+        need = world.min_ships_to_own_at(
+            target.id,
+            joint_turn,
+            world.player,
+            upper_bound=total_available,
+        )
+        desired = min(
+            total_available,
+            max(TURTLE_BREAKOUT_MIN_TOTAL_SEND, need + TURTLE_BREAKOUT_OVERKILL),
+        )
+        if need <= 0 or total_available < desired:
+            continue
+
+        remaining = desired
+        moves = []
+        ordered = sorted(selected, key=lambda item: (item[0], item[2].id))
+        for idx, (_, _, src, available, _) in enumerate(ordered):
+            rest = sum(item[3] for item in ordered[idx + 1 :])
+            send = min(available, max(0, remaining - rest))
+            if send <= 0:
+                continue
+            aim = world.plan_shot(src.id, target.id, send)
+            if aim is None:
+                moves = []
+                break
+            angle, _, _, _ = aim
+            moves.append([src.id, float(angle), int(send)])
+            remaining -= send
+        if remaining <= 0 and moves:
+            return moves
+
+    return None
+
+
 def plan_moves(world, deadline=None):
     def expired():
         return deadline is not None and time.perf_counter() > deadline
@@ -2238,8 +5954,33 @@ def plan_moves(world, deadline=None):
     def allow_optional_phase():
         return time_left() > OPTIONAL_PHASE_MIN_TIME
 
+    opening_anchor_moves = build_opening_anchor_moves(world)
+    if opening_anchor_moves is not None:
+        return opening_anchor_moves
+    opening_near_quality_moves = build_opening_near_quality_moves(world)
+    if opening_near_quality_moves is not None:
+        return opening_near_quality_moves
+    opening_priority_moves = build_opening_priority_moves(world)
+    if opening_priority_moves is not None:
+        return opening_priority_moves
+    opening_local_quality_moves = build_opening_local_quality_moves(world)
+    if opening_local_quality_moves is not None:
+        return opening_local_quality_moves
+    opening_mainline_moves = build_opening_mainline_moves(world)
+    if opening_mainline_moves is not None:
+        return opening_mainline_moves
+    opening_heavy_prize_moves = build_opening_heavy_prize_moves(world)
+    if opening_heavy_prize_moves is not None:
+        return opening_heavy_prize_moves
+
     modes = build_modes(world)
     policy = build_policy_state(world, deadline=deadline)
+    policy["predicted_enemy_arrivals"] = (
+        predict_enemy_arrivals(world, deadline=deadline)
+        if allow_heavy_phase()
+        else {}
+    )
+
     planned_commitments = defaultdict(list)
     source_options_by_target = defaultdict(list)
     missions = []
@@ -2253,8 +5994,39 @@ def plan_moves(world, deadline=None):
         budget = policy["attack_budget"].get(source_id, 0)
         return max(0, budget - spent_total[source_id])
 
-    def append_move(src_id, angle, ships):
-        send = min(int(ships), source_inventory_left(src_id))
+    def append_move(src_id, angle, ships, target_id=None):
+        if target_id is not None:
+            target = world.planet_by_id.get(target_id)
+            if (
+                target is not None
+                and world.is_opening
+                and target.owner == -1
+                and target.production <= 1
+                and (
+                    int(ships) > int(target.ships) + OPENING_FILL_LOW_PROD_MAX_OVER_NEUTRAL
+                    or (
+                        low_production_home_profile(world)
+                        and int(ships) > OPENING_FILL_LOW_PROD_MAX_NEEDED
+                    )
+                )
+            ):
+                return 0
+            if target is not None and poor_opening_target(target, world):
+                return 0
+        send_cap = source_inventory_left(src_id)
+        if target_id is not None:
+            target = world.planet_by_id.get(target_id)
+            source = world.planet_by_id.get(src_id)
+            if (
+                target is not None
+                and source is not None
+                and target.owner != world.player
+                and is_defense_core_planet(source, world)
+                and world.fall_turn_map.get(src_id) is not None
+                and world.fall_turn_map.get(src_id) <= SOURCE_LOCK_FALL_TURNS
+            ):
+                send_cap = min(send_cap, source_attack_left(src_id))
+        send = min(int(ships), send_cap)
         if send < 1:
             return 0
         moves.append([src_id, float(angle), int(send)])
@@ -2297,6 +6069,132 @@ def plan_moves(world, deadline=None):
             return False
         return True
 
+    if OPENING_COMMITTED_ENABLED and world.step <= OPENING_COMMIT_TURN_LIMIT:
+        committed_target_seen = False
+        for src in world.my_planets:
+            if expired():
+                return finalize_moves()
+            if src.production > OPENING_COMMIT_HOME_PROD_MAX:
+                continue
+            target = opening_committed_target(src, world)
+            if target is None:
+                continue
+            committed_target_seen = True
+            src_available = source_inventory_left(src.id)
+            max_send = max(0, src_available - OPENING_COMMIT_MIN_RESERVE)
+            if max_send <= 0:
+                return finalize_moves()
+            seeded = world.best_probe_aim(
+                src.id,
+                target.id,
+                max_send,
+                hints=(int(target.ships) + OPENING_COMMIT_MARGIN,),
+            )
+            if seeded is None:
+                return finalize_moves()
+            probe, rough_aim = seeded
+            rough_turns = rough_aim[1]
+            needed = world.min_ships_to_own_at(
+                target.id,
+                rough_turns,
+                world.player,
+                planned_commitments=planned_commitments,
+                upper_bound=max_send,
+            )
+            required = max(needed, int(target.ships) + OPENING_COMMIT_MARGIN)
+            if needed <= 0 or required > max_send:
+                return finalize_moves()
+            plan = settle_plan(
+                src,
+                target,
+                max_send,
+                required,
+                world,
+                planned_commitments,
+                modes,
+                policy,
+                mission="capture",
+            )
+            if plan is None:
+                return finalize_moves()
+            angle, turns, _, need, send = plan
+            send = max(send, required)
+            if send > max_send:
+                return finalize_moves()
+            actual = append_move(src.id, angle, send, target.id)
+            if actual >= need:
+                planned_commitments[target.id].append((turns, world.player, int(actual)))
+                return finalize_moves()
+        if committed_target_seen:
+            return finalize_moves()
+
+    if LOCAL_OPENING_ENABLED and world.step <= 6:
+        for src in world.my_planets:
+            if expired():
+                return finalize_moves()
+            src_available = source_attack_left(src.id)
+            if src_available <= 0:
+                continue
+
+            local_targets = [
+                target
+                for target in world.neutral_planets
+                if target.production >= 2
+                and int(target.ships) <= 10
+                and planet_distance(src, target) <= 18.0
+            ]
+            local_targets.sort(
+                key=lambda target: (
+                    -int(target.production),
+                    int(target.ships),
+                    planet_distance(src, target),
+                    target.id,
+                )
+            )
+
+            for target in local_targets:
+                seeded = world.best_probe_aim(
+                    src.id,
+                    target.id,
+                    src_available,
+                    hints=(int(target.ships) + 1,),
+                )
+                if seeded is None:
+                    continue
+                probe, rough_aim = seeded
+                rough_turns = rough_aim[1]
+                if not candidate_time_valid(target, rough_turns, world, LATE_CAPTURE_BUFFER):
+                    continue
+                needed = world.min_ships_to_own_at(
+                    target.id,
+                    rough_turns,
+                    world.player,
+                    planned_commitments=planned_commitments,
+                    upper_bound=src_available,
+                )
+                if needed <= 0 or needed > src_available:
+                    continue
+                plan = settle_plan(
+                    src,
+                    target,
+                    src_available,
+                    max(probe, needed),
+                    world,
+                    planned_commitments,
+                    modes,
+                    policy,
+                    mission="capture",
+                )
+                if plan is None:
+                    continue
+                angle, turns, _, need, send = plan
+                if send < need:
+                    continue
+                actual = append_move(src.id, angle, send, target.id)
+                if actual >= need:
+                    planned_commitments[target.id].append((turns, world.player, int(actual)))
+                    break
+
     if allow_heavy_phase():
         missions.extend(
             build_reinforce_missions(
@@ -2304,11 +6202,21 @@ def plan_moves(world, deadline=None):
                 policy,
                 planned_commitments,
                 modes,
-                source_inventory_left,
+                source_attack_left,
             )
         )
     missions.extend(build_rescue_missions(world, policy, planned_commitments, modes))
     missions.extend(build_recapture_missions(world, policy, planned_commitments, modes))
+    missions.extend(
+        build_midgame_control_missions(
+            world,
+            policy,
+            planned_commitments,
+            modes,
+            source_attack_left,
+            deadline=deadline,
+        )
+    )
 
     # Only build candidates after solving an intercept so timing decisions come
     # from a real route.
@@ -2323,6 +6231,8 @@ def plan_moves(world, deadline=None):
             if expired():
                 return finalize_moves()
             if target.id == src.id or target.owner == world.player:
+                continue
+            if reserve_source_for_local_prize(src, target, world):
                 continue
 
             seeded = world.best_probe_aim(
@@ -2427,6 +6337,8 @@ def plan_moves(world, deadline=None):
                 if not time_filters_pass(target, turns, needed, src_available):
                     continue
                 if send_cap < 1:
+                    continue
+                if not midgame_attack_allowed(src, target, send_cap, turns, world, modes):
                     continue
 
                 value = target_value(target, turns, "capture", world, modes, policy)
@@ -2584,6 +6496,15 @@ def plan_moves(world, deadline=None):
 
     if allow_heavy_phase():
         missions.extend(build_crash_exploit_missions(world, policy, planned_commitments, modes))
+        missions.extend(
+            build_heavy_assault_missions(
+                world,
+                policy,
+                planned_commitments,
+                modes,
+                source_attack_left,
+            )
+        )
 
     missions.sort(key=lambda item: -item.score)
 
@@ -2599,7 +6520,7 @@ def plan_moves(world, deadline=None):
             src = world.planet_by_id[option.src_id]
             if mission.kind == "reinforce":
                 left = min(
-                    source_inventory_left(option.src_id),
+                    source_attack_left(option.src_id),
                     int(src.ships * REINFORCE_MAX_SOURCE_FRACTION),
                 )
             else:
@@ -2679,8 +6600,13 @@ def plan_moves(world, deadline=None):
             angle, turns, _, need, send = plan
             if send < need or need > left:
                 continue
+            if (
+                mission.kind in ("single", "crash_exploit")
+                and not midgame_attack_allowed(src, target, send, turns, world, modes)
+            ):
+                continue
 
-            sent = append_move(option.src_id, angle, send)
+            sent = append_move(option.src_id, angle, send, target.id)
             if sent < need:
                 continue
             planned_commitments[target.id].append((turns, world.player, int(sent)))
@@ -2702,12 +6628,15 @@ def plan_moves(world, deadline=None):
         )
         if missing <= 0 or sum(limits) < missing:
             continue
+        desired_total = max(missing, int(mission.min_total or 0))
+        if sum(limits) < desired_total:
+            continue
 
         ordered = sorted(
             zip(mission.options, limits),
             key=lambda item: (item[0].turns, -item[1], item[0].src_id),
         )
-        remaining = missing
+        remaining = desired_total
         sends = {}
         for idx, (option, limit) in enumerate(ordered):
             remaining_other = sum(other_limit for _, other_limit in ordered[idx + 1 :])
@@ -2749,22 +6678,27 @@ def plan_moves(world, deadline=None):
 
         committed = []
         for src_id, angle, turns, send in reaimed:
-            actual = append_move(src_id, angle, send)
+            actual = append_move(src_id, angle, send, target.id)
             if actual <= 0:
                 continue
             committed.append((turns, world.player, int(actual)))
-        if sum(item[2] for item in committed) < missing:
+        if sum(item[2] for item in committed) < desired_total:
             continue
         planned_commitments[target.id].extend(committed)
 
     # Use leftover attack budget for one more pass after the first commitment
     # wave is fixed.
     if not world.is_very_late and allow_optional_phase():
+        followup_floor = (
+            P3_CLOSE_MIRROR_FOLLOWUP_MIN_SHIPS
+            if p3_close_mirror_profile(world)
+            else FOLLOWUP_MIN_SHIPS
+        )
         for src in world.my_planets:
             if expired():
                 return finalize_moves()
             src_left = source_attack_left(src.id)
-            if src_left < FOLLOWUP_MIN_SHIPS:
+            if src_left < followup_floor:
                 continue
 
             best = None
@@ -2772,6 +6706,8 @@ def plan_moves(world, deadline=None):
                 if expired():
                     return finalize_moves()
                 if target.id == src.id or target.owner == world.player:
+                    continue
+                if reserve_source_for_local_prize(src, target, world):
                     continue
                 if target.id in world.comet_ids and target.production <= LOW_VALUE_COMET_PRODUCTION:
                     continue
@@ -2825,6 +6761,8 @@ def plan_moves(world, deadline=None):
                     continue
                 if final_send < need:
                     continue
+                if not midgame_attack_allowed(src, target, final_send, turns, world, modes):
+                    continue
 
                 value = target_value(target, turns, "capture", world, modes, policy)
                 if value <= 0:
@@ -2866,7 +6804,7 @@ def plan_moves(world, deadline=None):
             if send < need:
                 continue
 
-            actual = append_move(src.id, angle, send)
+            actual = append_move(src.id, angle, send, target.id)
             if actual < need:
                 continue
             planned_commitments[target.id].append((turns, world.player, int(actual)))
@@ -2896,6 +6834,18 @@ def plan_moves(world, deadline=None):
                 return finalize_moves()
             if planet.id not in live_doomed:
                 continue
+
+            if is_defense_core_planet(planet, world):
+                fleet_eta, fleet_stack = enemy_fleet_pressure_to_planet(
+                    planet,
+                    world,
+                    DOOMED_CORE_THREAT_HORIZON,
+                )
+                if (
+                    fleet_eta is not None
+                    and fleet_stack >= max(8, int(planet.production) * 3)
+                ):
+                    continue
 
             available_now = source_inventory_left(planet.id)
             if available_now < policy["reserve"].get(planet.id, 0):
@@ -2954,7 +6904,7 @@ def plan_moves(world, deadline=None):
 
             if best_capture is not None:
                 _, target_id, angle, turns, need = best_capture
-                actual = append_move(planet.id, angle, need)
+                actual = append_move(planet.id, angle, need, target_id)
                 if actual >= 1:
                     planned_commitments[target_id].append((turns, world.player, int(actual)))
                 continue
@@ -3068,7 +7018,851 @@ def plan_moves(world, deadline=None):
 def _read(obs, key, default=None):
     if isinstance(obs, dict):
         return obs.get(key, default)
-    return getattr(obs, key, default)
+    getter = getattr(obs, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            value = getter(key)
+            return default if value is None else value
+    try:
+        return obs[key]
+    except Exception:
+        return getattr(obs, key, default)
+
+
+def activate_strategy_profile(step):
+    global EDGE_AIM_ENABLED, DELAYED_SNIPE_ENABLED, LOCAL_OPENING_ENABLED, LEAN_OPENING_ENABLED
+    global AGGRESSIVE_DEFENSE_ENABLED, OPENING_ROUTE_GUARD_ENABLED, OPENING_COMMITTED_ENABLED
+
+    opening_active = step < OPENING_TURN_LIMIT
+    EDGE_AIM_ENABLED = PROFILE_EDGE_AIM and opening_active
+    DELAYED_SNIPE_ENABLED = PROFILE_DELAYED_SNIPE and opening_active
+    LOCAL_OPENING_ENABLED = PROFILE_LOCAL_OPENING and opening_active
+    LEAN_OPENING_ENABLED = PROFILE_LEAN_OPENING and opening_active
+    AGGRESSIVE_DEFENSE_ENABLED = PROFILE_AGGRESSIVE_DEFENSE and opening_active
+    OPENING_ROUTE_GUARD_ENABLED = opening_active and (
+        OPENING_ROUTE_GUARD_ALWAYS or PROFILE_OPENING_ROUTE_GUARD
+    )
+    OPENING_COMMITTED_ENABLED = PROFILE_OPENING_ROUTE_GUARD and opening_active
+
+
+def update_profile_capture_memory(player, step, planets):
+    global PROFILE_LAST_OWNERS, PROFILE_CAPTURED_AT
+
+    for planet in planets:
+        previous_owner = PROFILE_LAST_OWNERS.get(planet.id)
+        if planet.owner == player and previous_owner != player:
+            PROFILE_CAPTURED_AT[planet.id] = int(step)
+        elif planet.owner != player and previous_owner == player:
+            PROFILE_CAPTURED_AT.pop(planet.id, None)
+        PROFILE_LAST_OWNERS[planet.id] = planet.owner
+
+
+def configure_strategy_profile(obs):
+    global EDGE_AIM_ENABLED, DELAYED_SNIPE_ENABLED, LOCAL_OPENING_ENABLED, LEAN_OPENING_ENABLED
+    global AGGRESSIVE_DEFENSE_ENABLED, OPENING_ROUTE_GUARD_ENABLED, OPENING_COMMITTED_ENABLED
+    global PROFILE_SIGNATURE, PROFILE_EDGE_AIM, PROFILE_DELAYED_SNIPE
+    global PROFILE_LOCAL_OPENING, PROFILE_LEAN_OPENING, PROFILE_AGGRESSIVE_DEFENSE
+    global PROFILE_OPENING_ROUTE_GUARD, PROFILE_ARCHETYPE, PROFILE_HOME_IDS
+    global PROFILE_LAST_OWNERS, PROFILE_CAPTURED_AT
+
+    player = _read(obs, "player", 0)
+    step = _read(obs, "step", 0) or 0
+    raw_planets = _read(obs, "planets", []) or []
+    raw_initial = _read(obs, "initial_planets", []) or raw_planets
+    planets = [Planet(*planet) for planet in raw_planets]
+    initial_planets = [Planet(*planet) for planet in raw_initial]
+    my_planets = [planet for planet in planets if planet.owner == player]
+
+    signature = (
+        player,
+        tuple(
+            (
+                planet[0],
+                int(planet[6]),
+                int(planet[5]),
+                round(planet[2], 1),
+                round(planet[3], 1),
+            )
+            for planet in raw_initial[:12]
+        ),
+    )
+
+    if signature == PROFILE_SIGNATURE:
+        activate_strategy_profile(step)
+    else:
+        PROFILE_LAST_OWNERS = {}
+        PROFILE_CAPTURED_AT = {}
+
+    if signature != PROFILE_SIGNATURE and my_planets:
+        PROFILE_HOME_IDS = tuple(sorted(planet.id for planet in my_planets))
+        low_orbit_route_profile = False
+        low_orbit_delay_profile = False
+        precise_cluster_profile = False
+        delay_race_profile = False
+        delay_frontier_profile = False
+        static_prize_route_profile = False
+        static_close_route_profile = False
+        static_local_first_profile = False
+        static_far_delay_profile = False
+        dynamic_equal_static_delay_profile = False
+        low_static_route_profile = False
+        aggressive_defense_profile = False
+        mid_orbit_route_profile = False
+        local_opening_profile = False
+        lean_opening_profile = False
+        fast_local_prize_profile = False
+        route_only_opening_profile = False
+        tail_delay_profile = False
+        tail_both_profile = False
+        suppress_edge_profile = False
+        opening_route_guard_profile = False
+        for src in my_planets:
+            src_radius = orbital_radius(src)
+            src_diag = abs((src.x - CENTER_X) - (src.y - CENTER_Y))
+            close_affordable_prize = any(
+                target.id != src.id
+                and target.owner != player
+                and target.production >= 5
+                and int(target.ships) <= 12
+                and planet_distance(src, target) <= 13.0
+                for target in initial_planets
+            )
+            if src.production <= 1:
+                close_bad_blocker = any(
+                    target.id != src.id
+                    and target.owner != player
+                    and target.production <= OPENING_BAD_TARGET_MAX_PROD
+                    and int(target.ships) >= OPENING_BAD_TARGET_MIN_SHIPS
+                    and planet_distance(src, target) <= 14.0
+                    for target in initial_planets
+                )
+                better_local_target = any(
+                    target.id != src.id
+                    and target.owner != player
+                    and target.production >= OPENING_BETTER_TARGET_MIN_PROD
+                    and int(target.ships) <= OPENING_BETTER_TARGET_MAX_SHIPS
+                    and planet_distance(src, target) <= OPENING_BETTER_TARGET_DIST
+                    for target in initial_planets
+                )
+                if close_bad_blocker and better_local_target:
+                    opening_route_guard_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production <= 1
+                and src_diag > 5.0
+            ):
+                hold_for_local_front = any(
+                    target.id != src.id
+                    and target.owner != player
+                    and target.production >= 4
+                    and int(target.ships) <= 20
+                    and planet_distance(src, target) <= 26.0
+                    for target in initial_planets
+                )
+                close_fast_prize = any(
+                    target.id != src.id
+                    and target.owner != player
+                    and target.production >= 4
+                    and int(target.ships) <= 10
+                    and planet_distance(src, target) <= 13.0
+                    for target in initial_planets
+                )
+                close_route_prize = close_fast_prize or any(
+                    target.id != src.id
+                    and target.owner != player
+                    and target.production >= 4
+                    and int(target.ships) <= 22
+                    and planet_distance(src, target) <= 14.0
+                    for target in initial_planets
+                )
+                if close_route_prize:
+                    low_orbit_route_profile = True
+                elif hold_for_local_front:
+                    pass
+                else:
+                    low_orbit_delay_profile = True
+
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        is_static_planet(target)
+                        and target.production >= 4
+                        and int(target.ships) <= 10
+                        and 18.0 <= target_dist <= 21.0
+                        and src_radius < 35.0
+                    ):
+                        aggressive_defense_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 2
+                and src_radius >= 35.0
+                and src_diag > 18.0
+            ):
+                close_bargain_prize = any(
+                    target.id != src.id
+                    and target.owner != player
+                    and (
+                        (
+                            target.production >= 5
+                            and int(target.ships) <= 12
+                            and planet_distance(src, target) <= 14.5
+                        )
+                        or (
+                            target.production >= 3
+                            and int(target.ships) <= 20
+                            and planet_distance(src, target) <= 18.0
+                        )
+                    )
+                    for target in initial_planets
+                )
+                if not close_bargain_prize:
+                    mid_orbit_route_profile = True
+
+            if (
+                is_static_planet(src)
+                and src.production == 2
+            ):
+                close_local_gain = False
+                distant_fast_prize = False
+                brittle_far_prize = False
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        target.production == 3
+                        and int(target.ships) <= 10
+                        and target_dist <= 16.0
+                    ):
+                        close_local_gain = True
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 12
+                        and target_dist <= 28.0
+                    ):
+                        distant_fast_prize = True
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 6
+                        and 18.0 < target_dist <= 25.0
+                    ):
+                        brittle_far_prize = True
+                if close_local_gain and distant_fast_prize:
+                    static_local_first_profile = True
+                if brittle_far_prize:
+                    static_local_first_profile = True
+
+            if (
+                is_static_planet(src)
+                and src.production <= 1
+            ):
+                avoid_outer_low_static_route = (
+                    src.production <= 1
+                    and src_radius > 55.0
+                    and src_diag < 8.0
+                )
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        not avoid_outer_low_static_route
+                        and
+                        (
+                            (2 <= target.production <= 4 and int(target.ships) <= 22)
+                            or (target.production >= 5 and int(target.ships) <= 12)
+                        )
+                        and planet_distance(src, target) <= 25.0
+                    ):
+                        low_static_route_profile = True
+                        mid_orbit_route_profile = True
+                        break
+                    if (
+                        not avoid_outer_low_static_route
+                        and
+                        src_diag > 35.0
+                        and target.production >= 5
+                        and int(target.ships) <= 20
+                        and planet_distance(src, target) <= 22.0
+                    ):
+                        low_static_route_profile = True
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production == 4
+                and src_radius > 60.0
+                and src_diag < 2.0
+            ):
+                static_far_delay_profile = True
+
+            if (
+                is_static_planet(src)
+                and src.production == 4
+                and src_radius <= 55.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        target.production >= 4
+                        and int(target.ships) <= 10
+                        and 20.0 <= target_dist <= 32.0
+                    ):
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production == 4
+                and 48.0 <= src_radius <= 52.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 10
+                        and planet_distance(src, target) <= 18.0
+                    ):
+                        tail_both_profile = True
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production == 3
+                and src_radius < 50.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        2 <= target.production <= 3
+                        and int(target.ships) <= 14
+                        and planet_distance(src, target) <= 23.0
+                    ):
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production == 3
+                and 45.0 <= src_radius <= 52.0
+                and src_diag > 25.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 3
+                        and int(target.ships) <= 12
+                        and planet_distance(src, target) <= 14.0
+                    ):
+                        route_only_opening_profile = True
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production >= 5
+                and src_radius > 50.0
+                and src_diag > 20.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        is_static_planet(target)
+                        and target.production == 2
+                        and int(target.ships) <= 12
+                        and planet_distance(src, target) <= 22.0
+                    ):
+                        aggressive_defense_profile = True
+                        break
+
+            if (
+                is_static_planet(src)
+                and src.production >= 5
+                and 48.0 <= src_radius <= 55.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        target.production == 4
+                        and int(target.ships) <= 12
+                        and 20.0 <= target_dist <= 26.0
+                    ):
+                        tail_both_profile = True
+                        mid_orbit_route_profile = True
+                    if (
+                        src_diag > 15.0
+                        and target.production >= 4
+                        and int(target.ships) <= 30
+                        and target_dist <= 14.0
+                    ):
+                        tail_delay_profile = True
+                    if tail_both_profile or tail_delay_profile:
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 4
+                and 30.0 <= src_radius <= 40.0
+                and src_diag > 10.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        is_static_planet(target)
+                        and target.production == src.production
+                        and int(target.ships) <= 30
+                        and planet_distance(src, target) <= 14.0
+                    ):
+                        dynamic_equal_static_delay_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 4
+                and 34.0 <= src_radius <= 38.0
+                and 6.0 <= src_diag <= 12.0
+            ):
+                close_static_front = False
+                close_heavy_front = False
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        is_static_planet(target)
+                        and target.production >= 3
+                        and int(target.ships) <= 18
+                        and target_dist <= 14.0
+                    ):
+                        close_static_front = True
+                    if (
+                        target.production >= 4
+                        and int(target.ships) >= 35
+                        and target_dist <= 14.0
+                    ):
+                        close_heavy_front = True
+                if close_static_front and close_heavy_front:
+                    tail_delay_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production == 4
+                and src_radius < 30.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 25
+                        and planet_distance(src, target) <= 14.0
+                    ):
+                        delay_race_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 4
+                and 30.0 <= src_radius <= 35.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 8
+                        and planet_distance(src, target) <= 28.0
+                    ):
+                        mid_orbit_route_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 3
+                and 30.0 <= src_radius <= 45.0
+                and src_diag > 10.0
+            ):
+                close_fast_prize = False
+                cheap_static_detour = False
+                far_cheap_route = False
+                nearby_heavy_front = False
+                wide_static_front = False
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        target.production >= 4
+                        and int(target.ships) <= 10
+                        and target_dist <= 18.0
+                    ):
+                        close_fast_prize = True
+                        if is_static_planet(target) and src_radius >= 35.0 and src_diag >= 18.0:
+                            wide_static_front = True
+                    if (
+                        target.production >= 3
+                        and int(target.ships) <= 30
+                        and target_dist <= 24.0
+                    ):
+                        nearby_heavy_front = True
+                    if (
+                        target.production >= 3
+                        and int(target.ships) <= 10
+                        and 35.0 <= target_dist <= 46.0
+                    ):
+                        far_cheap_route = True
+                    if (
+                        is_static_planet(target)
+                        and target.production <= 1
+                        and int(target.ships) <= 10
+                        and target_dist <= 18.0
+                    ):
+                        cheap_static_detour = True
+                if wide_static_front:
+                    tail_delay_profile = True
+                elif close_fast_prize and not cheap_static_detour:
+                    mid_orbit_route_profile = True
+                if far_cheap_route and nearby_heavy_front:
+                    mid_orbit_route_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production == 2
+                and player == 1
+                and src.y < 20.0
+            ):
+                low_orbit_route_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production == 3
+                and src_radius < 25.0
+                and src_diag < 3.0
+            ):
+                has_equal_front = False
+                has_outer_prize = False
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    target_dist = planet_distance(src, target)
+                    if (
+                        target.production >= 3
+                        and int(target.ships) <= 16
+                        and target_dist <= 16.0
+                    ):
+                        has_equal_front = True
+                    if (
+                        target.production >= 5
+                        and int(target.ships) <= 12
+                        and target_dist <= 36.0
+                    ):
+                        has_outer_prize = True
+                if has_equal_front and has_outer_prize:
+                    tail_delay_profile = True
+                    suppress_edge_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production >= 5
+                and src_radius < 30.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 2
+                        and int(target.ships) <= 10
+                        and planet_distance(src, target) <= 25.0
+                    ):
+                        delay_race_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production >= 5
+                and src_radius < 32.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 4
+                        and 12 <= int(target.ships) <= 24
+                        and planet_distance(src, target) <= 26.0
+                    ):
+                        mid_orbit_route_profile = True
+                        break
+
+            for target in initial_planets:
+                if target.id == src.id or target.owner == player:
+                    continue
+                target_dist = planet_distance(src, target)
+                if (
+                    not is_static_planet(src)
+                    and src.production >= 5
+                    and src_radius < 30.0
+                    and src_diag <= 8.0
+                    and target.production >= src.production
+                    and int(target.ships) <= 10
+                    and target_dist <= 14.0
+                ):
+                    fast_local_prize_profile = True
+                if (
+                    is_static_planet(src)
+                    and src.production in (3, 4)
+                    and src_radius <= 60.0
+                    and target.production >= src.production + 1
+                    and int(target.ships) <= 30
+                    and int(target.ships) >= int(src.ships) + 2
+                    and target_dist <= 22.0
+                ):
+                    delay_frontier_profile = True
+                if (
+                    not is_static_planet(src)
+                    and src.production >= 4
+                    and src_diag > 5.0
+                    and target.production >= src.production
+                    and int(target.ships) <= 25
+                    and target_dist <= 22.0
+                ):
+                    delay_frontier_profile = True
+                if (
+                    not is_static_planet(src)
+                    and src.production <= 2
+                    and not close_affordable_prize
+                    and not (
+                        src.production == 2
+                        and player == 1
+                        and src.y < 20.0
+                    )
+                    and target.production >= src.production + 2
+                    and int(target.ships) <= 25
+                    and target_dist <= 18.0
+                ):
+                    delay_frontier_profile = True
+                if (
+                    is_static_planet(src)
+                    and src.production == 2
+                    and not static_local_first_profile
+                    and target.production >= 5
+                    and int(target.ships) <= 12
+                    and target_dist <= 28.0
+                ):
+                    static_prize_route_profile = True
+
+            if (
+                not is_static_planet(src)
+                and src.production == 2
+                and 25.0 <= src_radius <= 35.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 2
+                        and int(target.ships) <= 10
+                        and planet_distance(src, target) <= 18.0
+                    ):
+                        local_opening_profile = True
+                        break
+
+            if is_static_planet(src) and src.production == 3:
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 2
+                        and int(target.ships) <= 12
+                        and planet_distance(src, target) <= 16.0
+                    ):
+                        local_opening_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production == 1
+                and 25.0 <= src_radius <= 30.0
+                and src_diag < 3.0
+                and not close_affordable_prize
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production >= 3
+                        and int(target.ships) <= 10
+                        and planet_distance(src, target) <= 28.0
+                    ):
+                        lean_opening_profile = True
+                        break
+
+            if src.production == 3:
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        is_static_planet(src)
+                        and target.production == 4
+                        and int(target.ships) <= 6
+                        and planet_distance(src, target) <= 32.0
+                    ):
+                        lean_opening_profile = True
+                        if planet_distance(src, target) <= 18.0:
+                            static_close_route_profile = True
+                        break
+
+            if is_static_planet(src) and src.production == 3:
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if (
+                        target.production == 2
+                        and int(target.ships) <= 8
+                        and planet_distance(src, target) <= 15.0
+                    ):
+                        static_close_route_profile = True
+                        break
+
+            if (
+                not is_static_planet(src)
+                and src.production >= 5
+                and src_radius < 30.0
+                and src_diag < 3.0
+            ):
+                for target in initial_planets:
+                    if target.id == src.id or target.owner == player:
+                        continue
+                    if int(target.ships) <= 6 and planet_distance(src, target) <= 12.0:
+                        delay_race_profile = True
+                        break
+
+        low_static_home = [
+            planet
+            for planet in my_planets
+            if planet.production <= 2 and is_static_planet(planet)
+        ]
+        static_delay_profile = False
+        for src in low_static_home:
+            for target in initial_planets:
+                if target.id == src.id or target.production < 2:
+                    continue
+                if int(target.ships) + 1 <= 10:
+                    static_delay_profile = True
+                    break
+            if static_delay_profile:
+                break
+
+        route_candidate = (
+            not suppress_edge_profile
+            and (
+                low_orbit_route_profile
+                or precise_cluster_profile
+                or static_prize_route_profile
+                or static_close_route_profile
+                or mid_orbit_route_profile
+                or tail_both_profile
+            )
+        )
+        delay_candidate = (
+            (static_delay_profile and not static_local_first_profile and not low_static_route_profile and not route_only_opening_profile)
+            or static_far_delay_profile
+            or dynamic_equal_static_delay_profile
+            or delay_race_profile
+            or tail_delay_profile
+            or tail_both_profile
+            or (
+                delay_frontier_profile
+                and not static_close_route_profile
+                and not low_orbit_route_profile
+                and not fast_local_prize_profile
+                and not route_only_opening_profile
+            )
+            or (local_opening_profile and not static_close_route_profile and not route_only_opening_profile)
+            or low_orbit_delay_profile
+        )
+
+        if tail_both_profile:
+            archetype = "both"
+        elif route_only_opening_profile or route_candidate:
+            archetype = "route"
+        elif delay_candidate:
+            archetype = "delay"
+        elif local_opening_profile:
+            archetype = "local"
+        elif lean_opening_profile:
+            archetype = "lean"
+        else:
+            archetype = "baseline"
+
+        PROFILE_SIGNATURE = signature
+        PROFILE_ARCHETYPE = archetype
+        PROFILE_EDGE_AIM = archetype in ("route", "both")
+        PROFILE_DELAYED_SNIPE = archetype in ("delay", "both")
+        PROFILE_LOCAL_OPENING = archetype == "local"
+        PROFILE_LEAN_OPENING = archetype == "lean"
+        PROFILE_AGGRESSIVE_DEFENSE = aggressive_defense_profile
+        PROFILE_OPENING_ROUTE_GUARD = opening_route_guard_profile
+
+        activate_strategy_profile(step)
+
+    mode = os.environ.get("ORBIT_STRATEGY_MODE", "").lower()
+    if mode == "baseline":
+        EDGE_AIM_ENABLED = False
+        DELAYED_SNIPE_ENABLED = False
+        LOCAL_OPENING_ENABLED = False
+        LEAN_OPENING_ENABLED = False
+        AGGRESSIVE_DEFENSE_ENABLED = False
+        OPENING_ROUTE_GUARD_ENABLED = False
+        OPENING_COMMITTED_ENABLED = False
+    elif mode == "delay":
+        EDGE_AIM_ENABLED = False
+        DELAYED_SNIPE_ENABLED = True
+        LOCAL_OPENING_ENABLED = False
+        LEAN_OPENING_ENABLED = False
+        AGGRESSIVE_DEFENSE_ENABLED = False
+        OPENING_ROUTE_GUARD_ENABLED = False
+        OPENING_COMMITTED_ENABLED = False
+    elif mode == "route":
+        EDGE_AIM_ENABLED = True
+        DELAYED_SNIPE_ENABLED = False
+        LOCAL_OPENING_ENABLED = False
+        LEAN_OPENING_ENABLED = False
+        AGGRESSIVE_DEFENSE_ENABLED = False
+        OPENING_ROUTE_GUARD_ENABLED = False
+        OPENING_COMMITTED_ENABLED = False
+    elif mode == "both":
+        EDGE_AIM_ENABLED = True
+        DELAYED_SNIPE_ENABLED = True
+        LOCAL_OPENING_ENABLED = False
+        LEAN_OPENING_ENABLED = False
+        AGGRESSIVE_DEFENSE_ENABLED = False
+        OPENING_ROUTE_GUARD_ENABLED = False
+        OPENING_COMMITTED_ENABLED = False
+
+    update_profile_capture_memory(player, step, planets)
 
 
 def build_world(obs):
@@ -3100,12 +7894,13 @@ def build_world(obs):
 
 def agent(obs, config=None):
     start_time = time.perf_counter()
+    configure_strategy_profile(obs)
     world = build_world(obs)
     if not world.my_planets:
         return []
     act_timeout = _read(config, "actTimeout", 1.0) if config is not None else 1.0
     soft_budget = min(SOFT_ACT_DEADLINE, max(0.55, act_timeout * 0.82))
-    deadline = start_time + soft_budget
+    deadline = None if os.environ.get("ORBIT_NO_DEADLINE") == "1" else start_time + soft_budget
     return plan_moves(world, deadline=deadline)
 
 

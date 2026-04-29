@@ -6,6 +6,13 @@ seed42开始，100局，胜率需要达到95%
 
 4人局最快20，二人局40，才会发生占领敌方星球的局面。
 
+结合日志数据，严格分析replay的过程存在哪些错误。
+
+replay文件夹：
+xxx-i.json 表示对局xxx的玩家i的日志（即本项目的submission），角色名叫 xite
+episode-xxx.json 表示对局xxx的回放
+
+结合日志和对局数据，优化submission的策略，完善日志记录
 
 
 多次loss的硬局，将对局回放保存在ouput，格式为html文件，命名示例d43.html

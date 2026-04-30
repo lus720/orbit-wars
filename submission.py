@@ -300,11 +300,11 @@ BEHIND_HOSTILE_BREAK_OWNER_PROD_GAP = 8
 BEHIND_HOSTILE_BREAK_TOTAL_RATIO = 0.82
 BEHIND_SWARM_ETA_BONUS = 1
 BEHIND_HOSTILE_SWARM_ETA_BONUS = 1
-LEADER_SUPPRESSION_START_STEP = 45
-LEADER_SUPPRESSION_PROD_GAP = 8
-LEADER_SUPPRESSION_STRENGTH_RATIO = 1.15
-LEADER_SUPPRESSION_SCORE_MULT = 1.42
-LEADER_SUPPRESSION_CORE_SCORE_MULT = 1.12
+LEADER_SUPPRESSION_START_STEP = 35
+LEADER_SUPPRESSION_PROD_GAP = 5
+LEADER_SUPPRESSION_STRENGTH_RATIO = 1.08
+LEADER_SUPPRESSION_SCORE_MULT = 1.75
+LEADER_SUPPRESSION_CORE_SCORE_MULT = 1.25
 
 WAIT_STRIKE_ENABLED = True
 WAIT_STRIKE_DELAYS = (0, 2, 4, 6)
@@ -446,6 +446,7 @@ OPENING_FILL_MAX_DIST = 28.0
 OPENING_FILL_LOW_PROD_MAX_NEEDED = 26
 OPENING_FILL_LOW_PROD_MAX_OVER_NEUTRAL = 16
 OPENING_FILL_WEAK_PROD_MAX_NEEDED = 42
+OPENING_LOW_PROD_HEAVY_TARGET_SHIPS = 35
 OPENING_HEAVY_PRIZE_MIN_PROD = 4
 OPENING_HEAVY_PRIZE_MIN_SHIPS = 36
 OPENING_HEAVY_PRIZE_SCORE_MULT = 1.45
@@ -584,6 +585,22 @@ OPENING_LOCAL_MID_HOME_P3_DIST = 24.0
 OPENING_LOCAL_MID_HOME_P3_SHIPS = 16
 OPENING_LOCAL_MID_HOME_CORE_BLOCK_DIST = 18.0
 OPENING_LOCAL_MID_HOME_CORE_BLOCK_SHIPS = 18
+OPENING_DIRECT_ENABLED = True
+OPENING_DIRECT_TURN_LIMIT = 5
+OPENING_DIRECT_MAX_PLANETS = 1
+OPENING_DIRECT_TWO_PLAYER_MAX_WAIT = 5
+OPENING_DIRECT_FOUR_PLAYER_MAX_WAIT = 3
+OPENING_DIRECT_TWO_PLAYER_MAX_TURNS = 30
+OPENING_DIRECT_FOUR_PLAYER_MAX_TURNS = 16
+OPENING_DIRECT_MAX_DIST = 40.0
+OPENING_DIRECT_MOVING_MAX_DIST_TWO_PLAYER = 110.0
+OPENING_DIRECT_MAX_TARGET_SHIPS = 34
+OPENING_DIRECT_MIN_TARGET_PROD = 2
+OPENING_DIRECT_MARGIN = 1
+OPENING_DIRECT_CORE_MARGIN = 2
+OPENING_DIRECT_AFFORDABLE_RATIO = 0.72
+OPENING_DIRECT_RACE_ALLOWANCE_TWO_PLAYER = 12.0
+OPENING_DIRECT_RACE_ALLOWANCE_FOUR_PLAYER = 4.0
 
 
 # ============================================================
@@ -2872,6 +2889,199 @@ def build_opening_fast_expand_moves(world):
     return opening_fast_expand_single_moves(world)
 
 
+def opening_direct_source_keep(src, world):
+    if world.num_players <= 2 and world.step < ENEMY_OCCUPATION_TURN_TWO_PLAYER:
+        return 0
+    if world.num_players >= 4 and world.step < ENEMY_OCCUPATION_TURN_FOUR_PLAYER:
+        return min(int(src.ships), 1)
+    return min(int(src.ships), 2 if world.num_players >= 4 else 1)
+
+
+def opening_direct_target_allowed(src, target, world):
+    if target.owner != -1 or target.id in world.comet_ids:
+        return False
+    if my_incoming_ships_to(target, world) > 0:
+        return False
+    if int(target.production) < OPENING_DIRECT_MIN_TARGET_PROD:
+        return False
+    if int(target.ships) > OPENING_DIRECT_MAX_TARGET_SHIPS:
+        return False
+    my_dist = planet_distance(src, target)
+    max_dist = OPENING_DIRECT_MAX_DIST
+    if world.num_players <= 2 and target_can_move(target, world.initial_by_id, world.comet_ids):
+        max_dist = OPENING_DIRECT_MOVING_MAX_DIST_TWO_PLAYER
+    if my_dist > max_dist:
+        return False
+
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    allowance = (
+        OPENING_DIRECT_RACE_ALLOWANCE_FOUR_PLAYER
+        if world.num_players >= 4
+        else OPENING_DIRECT_RACE_ALLOWANCE_TWO_PLAYER
+    )
+    return enemy_dist + allowance >= my_dist
+
+
+def opening_direct_target_score(src, target, desired, turns, wait, world):
+    production_value = float(max(1, target.production)) ** 1.55
+    if world.is_static(target.id):
+        production_value *= OPENING_SCORE_STATIC_MULT
+    if int(src.production) <= 1 and int(target.production) >= CORE_PRODUCTION:
+        production_value *= 1.18
+    if int(src.production) <= 2 and int(target.production) >= int(src.production) + 2:
+        production_value *= 1.12
+
+    enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    my_dist = planet_distance(src, target)
+    race_mult = 1.0
+    if enemy_dist + 2.0 < my_dist:
+        race_mult = 0.58
+    elif enemy_dist <= my_dist + 3.0:
+        race_mult = 0.82
+
+    cost = 1.0 + desired * 0.85 + turns * 1.05 + wait * 2.2 + my_dist * 0.12
+    return production_value * race_mult / max(1.0, cost)
+
+
+def opening_direct_candidates(src, world):
+    keep = opening_direct_source_keep(src, world)
+    available_now = max(0, int(src.ships) - keep)
+    max_wait = (
+        OPENING_DIRECT_FOUR_PLAYER_MAX_WAIT
+        if world.num_players >= 4
+        else OPENING_DIRECT_TWO_PLAYER_MAX_WAIT
+    )
+    max_turns = (
+        OPENING_DIRECT_FOUR_PLAYER_MAX_TURNS
+        if world.num_players >= 4
+        else OPENING_DIRECT_TWO_PLAYER_MAX_TURNS
+    )
+    future_cap = available_now + int(src.production) * max_wait
+    candidates = []
+
+    if future_cap <= 0:
+        return candidates
+
+    for target in world.neutral_planets:
+        if not opening_direct_target_allowed(src, target, world):
+            continue
+
+        margin = OPENING_DIRECT_MARGIN
+        if int(target.production) >= CORE_PRODUCTION:
+            margin += OPENING_DIRECT_CORE_MARGIN
+        probe = min(max(1, future_cap), max(1, int(target.ships) + margin))
+        aim = opening_priority_plan_shot(world, src, target, probe)
+        if aim is None:
+            continue
+        _, turns, _, _ = aim
+        if turns > max_turns:
+            continue
+        if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
+            continue
+
+        needed = world.min_ships_to_own_at(
+            target.id,
+            turns,
+            world.player,
+            upper_bound=max(1, future_cap),
+        )
+        desired = max(int(needed), int(target.ships) + margin)
+        if needed <= 0 or desired > future_cap:
+            continue
+
+        if desired <= available_now:
+            wait = 0
+        elif int(src.production) > 0:
+            wait = int(math.ceil((desired - available_now) / max(1, int(src.production))))
+        else:
+            continue
+        if wait > max_wait:
+            continue
+
+        score = opening_direct_target_score(src, target, desired, turns, wait, world)
+        candidates.append(
+            {
+                "score": score,
+                "target": target,
+                "desired": desired,
+                "turns": turns,
+                "wait": wait,
+            }
+        )
+
+    candidates.sort(
+        key=lambda item: (
+            -item["score"],
+            item["wait"],
+            -int(item["target"].production),
+            int(item["target"].ships),
+            item["turns"],
+            item["target"].id,
+        )
+    )
+    return candidates
+
+
+def build_opening_direct_expand_moves(world):
+    if (
+        not OPENING_DIRECT_ENABLED
+        or not world.is_opening
+        or world.step > OPENING_DIRECT_TURN_LIMIT
+        or len(world.my_planets) > OPENING_DIRECT_MAX_PLANETS
+    ):
+        return None
+
+    sources = sorted(
+        [
+            planet
+            for planet in world.my_planets
+            if is_profile_home(planet)
+            and is_static_planet(planet)
+            and int(planet.production) <= 2
+        ],
+        key=lambda planet: (-int(planet.production), planet.id),
+    )
+    if not sources:
+        return None
+
+    for src in sources:
+        if opening_mainline_source_inflight(src, world):
+            return None
+
+        candidates = opening_direct_candidates(src, world)
+        if not candidates:
+            continue
+
+        best = candidates[0]
+        affordable = [item for item in candidates if item["wait"] == 0]
+        chosen = None
+        if affordable:
+            top_affordable = affordable[0]
+            if top_affordable["score"] >= best["score"] * OPENING_DIRECT_AFFORDABLE_RATIO:
+                chosen = top_affordable
+            elif best["wait"] > 0:
+                return []
+            else:
+                chosen = best
+        elif best["wait"] > 0:
+            return []
+
+        if chosen is None:
+            continue
+
+        keep = opening_direct_source_keep(src, world)
+        send = min(max(0, int(src.ships) - keep), int(chosen["desired"]))
+        if send < int(chosen["desired"]):
+            return []
+        aim = opening_priority_plan_shot(world, src, chosen["target"], send)
+        if aim is None:
+            continue
+        angle, _, _, _ = aim
+        return [[src.id, float(angle), int(send)]]
+
+    return None
+
+
 def opening_anchor_has_fast_alternative(src, anchor, world):
     for target in world.neutral_planets:
         if target.id in (anchor.id, src.id) or target.id in world.comet_ids:
@@ -4315,6 +4525,8 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
     if target.owner not in (-1, world.player):
         value *= OPENING_HOSTILE_TARGET_VALUE_MULT if world.is_opening else HOSTILE_TARGET_VALUE_MULT
         leader_ahead = (
+            world.is_four_player
+            and
             world.step >= LEADER_SUPPRESSION_START_STEP
             and world.leading_enemy_owner is not None
             and (
@@ -5725,6 +5937,11 @@ def plan_moves(world, deadline=None):
     def allow_optional_phase():
         return time_left() > OPTIONAL_PHASE_MIN_TIME
 
+    opening_direct_moves = build_opening_direct_expand_moves(world)
+    if opening_direct_moves is not None:
+        debug_set("stage", "opening_direct")
+        debug_set("opening_return", len(opening_direct_moves))
+        return opening_direct_moves
     opening_fast_expand_moves = build_opening_fast_expand_moves(world)
     if opening_fast_expand_moves is not None:
         debug_set("stage", "opening_fast_expand")
@@ -5799,8 +6016,11 @@ def plan_moves(world, deadline=None):
         return max(0, budget - spent_total[source_id])
 
     def append_move(src_id, angle, ships, target_id=None, force=False):
-        if target_id is not None and not force:
-            target = world.planet_by_id.get(target_id)
+        inferred_target_id = target_id
+        if inferred_target_id is None and not force:
+            inferred_target_id = first_current_ray_hit(world, src_id, angle)
+        if inferred_target_id is not None and not force:
+            target = world.planet_by_id.get(inferred_target_id)
             if (
                 target is not None
                 and world.is_opening
@@ -5808,6 +6028,7 @@ def plan_moves(world, deadline=None):
                 and target.production <= 1
                 and (
                     int(ships) > int(target.ships) + OPENING_FILL_LOW_PROD_MAX_OVER_NEUTRAL
+                    or int(target.ships) >= OPENING_LOW_PROD_HEAVY_TARGET_SHIPS
                     or (
                         low_production_home_profile(world)
                         and int(ships) > OPENING_FILL_LOW_PROD_MAX_NEEDED
@@ -8227,7 +8448,8 @@ def configure_strategy_profile(obs):
 
         activate_strategy_profile(step)
 
-    mode = os.environ.get("ORBIT_STRATEGY_MODE", "").lower()
+    mode_value = os.environ.get("ORBIT_STRATEGY_MODE")
+    mode = "route" if mode_value is None else mode_value.lower()
     if mode == "baseline":
         EDGE_AIM_ENABLED = False
         DELAYED_SNIPE_ENABLED = False
@@ -8260,6 +8482,8 @@ def configure_strategy_profile(obs):
         AGGRESSIVE_DEFENSE_ENABLED = False
         OPENING_ROUTE_GUARD_ENABLED = False
         OPENING_COMMITTED_ENABLED = False
+    elif mode in ("profile", "auto", ""):
+        pass
 
     update_profile_capture_memory(player, step, planets)
 
@@ -8292,7 +8516,7 @@ def build_world(obs):
 
 
 def orbit_log_enabled(step):
-    mode = os.environ.get("ORBIT_LOG", "1").strip().lower()
+    mode = os.environ.get("ORBIT_LOG", "0").strip().lower()
     if mode in ("0", "false", "off", "no"):
         return False
     try:

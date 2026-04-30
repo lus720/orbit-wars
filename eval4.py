@@ -166,6 +166,7 @@ def run_game_worker(
         },
         debug=True,
     )
+    random.seed(agent_random_seed)
     if show_agent_output:
         env.run(agents)
     else:

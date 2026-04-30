@@ -72,6 +72,7 @@ def run_game(
         },
         debug=True,
     )
+    random.seed(seed)
     env.run(agents)
     elapsed = time.perf_counter() - start_time
 

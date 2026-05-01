@@ -24,8 +24,6 @@ ROUTE_SEARCH_HORIZON = 60
 HORIZON = 110
 LAUNCH_CLEARANCE = 0.1
 PATH_BLOCKER_EPSILON = 0.05
-FLEET_TARGET_SUBSTEPS = 4
-FLEET_TARGET_HIT_PADDING = 0.05
 ROUTE_AIM_OFFSETS = (0.0, -0.35, 0.35, -0.7, 0.7, -0.95, 0.95)
 EDGE_AIM_ENABLED = False
 DELAYED_SNIPE_ENABLED = False
@@ -33,10 +31,10 @@ LOCAL_OPENING_ENABLED = False
 LEAN_OPENING_ENABLED = False
 AGGRESSIVE_DEFENSE_ENABLED = False
 OPENING_ROUTE_GUARD_ENABLED = False
-OPENING_ROUTE_GUARD_ALWAYS = False
+OPENING_ROUTE_GUARD_ALWAYS = True
 OPENING_META_ENABLED = False
 ORBIT_LOG_PREFIX = "OWLOG "
-ORBIT_LOG_SAMPLE_LIMIT = 12
+ORBIT_LOG_SAMPLE_LIMIT = 4
 PROFILE_SIGNATURE = None
 PROFILE_EDGE_AIM = False
 PROFILE_DELAYED_SNIPE = False
@@ -44,16 +42,10 @@ PROFILE_LOCAL_OPENING = False
 PROFILE_LEAN_OPENING = False
 PROFILE_AGGRESSIVE_DEFENSE = False
 PROFILE_OPENING_ROUTE_GUARD = False
-PROFILE_SWARM_ETA_RELAX = True
 PROFILE_ARCHETYPE = "baseline"
-PROFILE_SELECTOR_REASON = "unset"
 PROFILE_HOME_IDS = ()
 PROFILE_LAST_OWNERS = {}
 PROFILE_CAPTURED_AT = {}
-PROFILE_LAST_PROD_GAP = None
-PROFILE_LAST_PROD_STEP = None
-PROFILE_MATCH_PLAYERS = 0
-OPENING_SOFTEN_COMMITMENTS = {}
 
 EARLY_TURN_LIMIT = 40
 OPENING_TURN_LIMIT = 80
@@ -68,9 +60,6 @@ SAFE_OPENING_PROD_THRESHOLD = 4
 SAFE_OPENING_TURN_LIMIT = 10
 ROTATING_OPENING_MAX_TURNS = 13
 ROTATING_OPENING_LOW_PROD = 2
-OPENING_CONTESTED_CORE_MIN_PROD = 5
-OPENING_CONTESTED_CORE_MAX_TURNS = 24
-OPENING_CONTESTED_CORE_ENEMY_LEAD = 4
 FOUR_PLAYER_ROTATING_REACTION_GAP = 3
 FOUR_PLAYER_ROTATING_SEND_RATIO = 0.62
 FOUR_PLAYER_ROTATING_TURN_LIMIT = 10
@@ -130,14 +119,8 @@ COMET_MARGIN_RELIEF = 6
 FINISHING_HOSTILE_SEND_BONUS = 3
 POST_CAPTURE_HOLD_WINDOW = 2
 POST_CAPTURE_HIGH_PROD_HOLD_WINDOW = 6
-POST_CAPTURE_FOUR_PLAYER_HIGH_PROD_HOLD_WINDOW = 6
 POST_CAPTURE_HOLD_RATIO = 0.65
 POST_CAPTURE_HOLD_MARGIN_CAP = 18
-POST_CAPTURE_REACTION_ENABLED = False
-POST_CAPTURE_REACTION_WINDOW = 4
-POST_CAPTURE_REACTION_MIN_PROD = 4
-POST_CAPTURE_REACTION_MIN_GARRISON = 12
-POST_CAPTURE_REACTION_MARGIN = 2
 
 STATIC_TARGET_SCORE_MULT = 1.18
 EARLY_STATIC_NEUTRAL_SCORE_MULT = 1.25
@@ -164,28 +147,12 @@ DEFENSE_SEND_MARGIN_PROD_WEIGHT = 1
 DEFENSE_SHIP_VALUE = 0.55
 DEFENSE_CORE_PRODUCTION = 3
 CORE_PRODUCTION = 4
-PROD_PRESSURE_GAP = 8
-PROD_PRESSURE_RATIO = 0.90
-PROD_PRESSURE_LOW_TARGET_MAX_PROD = 2
-PROD_PRESSURE_HEAVY_NEUTRAL_MIN_SHIPS = 24
-PROD_PRESSURE_LOW_NEUTRAL_MULT = 0.22
-PROD_PRESSURE_HEAVY_NEUTRAL_MULT = 0.52
-PROD_PRESSURE_LOW_HOSTILE_MULT = 0.42
-PROD_PRESSURE_HOSTILE_CORE_MULT = 1.22
-PROD_PRESSURE_LOW_DEFENSE_MULT = 0.38
 CORE_PASSIVE_KEEP_BASE = 5
 CORE_PASSIVE_KEEP_PROD_WEIGHT = 3
 CORE_PASSIVE_BOOST_KEEP_BASE = 7
 CORE_PASSIVE_BOOST_PROD_WEIGHT = 5
 ORIGINAL_HOME_EXTRA_KEEP = 10
 LOW_PROD_PROFILE_HOME_EXTRA_KEEP = 0
-LOW_PROD_HOME_RESERVE_RELIEF_ENABLED = False
-LOW_PROD_HOME_RESERVE_RELIEF_TURN_LIMIT = 90
-LOW_PROD_HOME_RESERVE_RELIEF_KEEP = 2
-LOW_PROD_HOME_RESERVE_RELIEF_MIN_TARGET_PROD = 4
-LOW_PROD_HOME_RESERVE_RELIEF_MAX_TARGET_SHIPS = 45
-LOW_PROD_HOME_RESERVE_RELIEF_MAX_DIST = 34.0
-LOW_PROD_HOME_RESERVE_RELIEF_ENEMY_ALLOWANCE = 7.0
 EARLY_P5_CORE_MIN_KEEP = 40
 EARLY_P5_CORE_KEEP_TURN_LIMIT = 90
 FRESH_CORE_SOURCE_LOCK_TURN_LIMIT = 90
@@ -230,37 +197,12 @@ CORE_POST_SEND_SEVERE_TOTAL_RATIO = 0.72
 CORE_POST_SEND_SEVERE_KEEP_FRACTION = 0.45
 CORE_POST_SEND_SEVERE_KEEP_BASE = 8
 CORE_POST_SEND_SEVERE_KEEP_PROD_WEIGHT = 3
-HIGH_PROD_RESCUE_RELIEF_MIN_PROD = 5
-HIGH_PROD_RESCUE_RELIEF_FALL_TURNS = 14
-HIGH_PROD_RESCUE_RELIEF_SOURCE_MAX_PROD = 2
-HIGH_PROD_RESCUE_RELIEF_KEEP_BASE = 3
-HIGH_PROD_RESCUE_RELIEF_KEEP_PROD_WEIGHT = 3
-HIGH_PROD_RESCUE_PRESSURE_ENABLED = False
-HIGH_PROD_RESCUE_PRESSURE_HORIZON = 10
-HIGH_PROD_RESCUE_PRESSURE_SEND_RATIO = 0.6
-HIGH_PROD_RESCUE_PRESSURE_MIN_STACK = 12
-HIGH_PROD_RESCUE_PRESSURE_EXTRA_CAP = 18
-SWING_RESCUE_RELIEF_ENABLED = True
-SWING_RESCUE_RELIEF_HORIZON = 5
-SWING_RESCUE_RELIEF_MIN_SWING = 8
-SWING_RESCUE_RELIEF_KEEP_BASE = 10
-SWING_RESCUE_RELIEF_KEEP_PROD_WEIGHT = 4
-SWING_RESCUE_RELIEF_KEEP_FRACTION = 0.50
-SWING_RESCUE_RELIEF_THREATENED_KEEP_FRACTION = 0.70
-SWING_RESCUE_RELIEF_MAX_SEND_FRACTION = 0.42
-SWING_RESCUE_RELIEF_SOURCE_FALL_BUFFER = 4
-THREATENED_PRODUCTIVE_RETREAT_FALL_TURNS = 14
-THREATENED_PRODUCTIVE_RETREAT_MIN_SEND_FRACTION = 0.35
 RESERVE_RELIEF_START_STEP = 60
 RESERVE_RELIEF_PROD_GAP = 10
 RESERVE_RELIEF_TOTAL_RATIO = 0.72
 RESERVE_RELIEF_KEEP_FRACTION = 0.68
 RESERVE_RELIEF_KEEP_BASE = 8
 RESERVE_RELIEF_PROD_WEIGHT = 4
-FOUR_PLAYER_EARLY_RESERVE_RELIEF_START = 20
-FOUR_PLAYER_EARLY_RESERVE_RELIEF_KEEP_FRACTION = 0.45
-FOUR_PLAYER_EARLY_RESERVE_RELIEF_KEEP_BASE = 4
-FOUR_PLAYER_EARLY_RESERVE_RELIEF_PROD_WEIGHT = 2
 LOW_HOME_RICH_CORE_DIST = 27.0
 LOW_HOME_RICH_CORE_MAX_SHIPS = 30
 LOW_HOME_RICH_CORE_MIN_COUNT = 2
@@ -296,18 +238,6 @@ REINFORCE_MAX_SOURCE_FRACTION = 0.75
 REINFORCE_MIN_FUTURE_TURNS = 40
 REINFORCE_HOLD_LOOKAHEAD = 20
 REINFORCE_COST_TURN_WEIGHT = 0.35
-PROACTIVE_SWING_REINFORCE_ENABLED = False
-PROACTIVE_SWING_REINFORCE_MIN_PROD = 4
-PROACTIVE_SWING_REINFORCE_HORIZON = 5
-PROACTIVE_SWING_REINFORCE_HOLD_TURNS = 10
-PROACTIVE_SWING_REINFORCE_ARRIVAL_SLACK = 4
-PROACTIVE_SWING_REINFORCE_ATTACK_MARGIN_BASE = 6
-PROACTIVE_SWING_REINFORCE_ATTACK_MARGIN_PROD_WEIGHT = 2
-PROACTIVE_SWING_REINFORCE_MAX_ATTACK_MARGIN = 24
-PROACTIVE_SWING_REINFORCE_MAX_TRAVEL_TURNS = 8
-PROACTIVE_SWING_REINFORCE_MAX_SOURCE_FRACTION = 0.50
-PROACTIVE_SWING_REINFORCE_SCORE_MULT = 1.65
-PROACTIVE_SWING_REINFORCE_MAX_TARGETS = 2
 
 RECAPTURE_LOOKAHEAD_TURNS = 10
 RECAPTURE_COST_TURN_WEIGHT = 0.52
@@ -323,8 +253,6 @@ REAR_SEND_RATIO_TWO_PLAYER = 0.62
 REAR_SEND_RATIO_FOUR_PLAYER = 0.7
 REAR_SEND_MIN_SHIPS = 10
 REAR_MAX_TRAVEL_TURNS = 40
-REAR_LOW_HOME_STAGE_BLOCK_ENABLED = False
-REAR_LOW_HOME_STAGE_SOURCE_PROD_GAP = 3
 
 PARTIAL_SOURCE_MIN_SHIPS = 6
 MULTI_SOURCE_TOP_K = 5
@@ -386,9 +314,6 @@ BEHIND_HOSTILE_BREAK_OWNER_PROD_GAP = 8
 BEHIND_HOSTILE_BREAK_TOTAL_RATIO = 0.82
 BEHIND_SWARM_ETA_BONUS = 1
 BEHIND_HOSTILE_SWARM_ETA_BONUS = 1
-FOUR_PLAYER_SWARM_ETA_BONUS = 1
-FOUR_PLAYER_HIGH_PROD_SWARM_ETA_BONUS = 1
-FOUR_PLAYER_BEHIND_SWARM_ETA_BONUS = 1
 LEADER_SUPPRESSION_START_STEP = 20
 LEADER_SUPPRESSION_PROD_GAP = 2
 LEADER_SUPPRESSION_STRENGTH_RATIO = 0.95
@@ -437,13 +362,7 @@ DOOMED_EVAC_TURN_LIMIT = 24
 DOOMED_MIN_SHIPS = 8
 DOOMED_CORE_THREAT_HORIZON = 5
 
-PROD_SWING_HORIZON = 5
-PROD_SWING_HOLD_TURNS = 3
-PROD_SWING_HIGH = 6
-PROD_SWING_SCORE_WEIGHT = 0.055
-PROD_SWING_URGENT_MULT = 1.28
-
-SOFT_ACT_DEADLINE = 0.96
+SOFT_ACT_DEADLINE = 0.82
 HEAVY_PHASE_MIN_TIME = 0.16
 OPTIONAL_PHASE_MIN_TIME = 0.08
 HEAVY_ROUTE_PLANET_LIMIT = 32
@@ -475,11 +394,6 @@ BOXED_BREAKOUT_HOSTILE_MIN_PROD = 3
 BOXED_BREAKOUT_NEAR_MISS_SHIPS = 8
 BOXED_BREAKOUT_NEAR_MISS_RATIO = 0.90
 BOXED_BREAKOUT_NEAR_MISS_SCORE_MULT = 0.72
-BOXED_BREAKOUT_SOURCE_SWING_GUARD_TURNS = 5
-BOXED_BREAKOUT_SOURCE_SWING_GUARD_URGENT_TURNS = 5
-BOXED_BREAKOUT_SOURCE_SWING_GUARD_ETA_SLACK = 2
-BOXED_BREAKOUT_SOURCE_SWING_GUARD_COUNTER_MAX_TURNS = 12
-BOXED_BREAKOUT_SOURCE_SWING_GUARD_MIN_SEND_FRACTION = 0.35
 SOFTEN_FALLBACK_ENABLED = True
 SOFTEN_FALLBACK_MIN_STEP = 40
 SOFTEN_FALLBACK_MAX_STEP = 150
@@ -570,9 +484,6 @@ OPENING_HEAVY_PRIZE_RESERVE_BASE = 4
 OPENING_HEAVY_PRIZE_RESERVE_PROD = 2
 OPENING_HEAVY_PRIZE_MARGIN = 6
 OPENING_HEAVY_PRIZE_SOURCE_THREAT_HORIZON = 5
-OPENING_PRIZE_RESERVE_ENABLED = True
-OPENING_PRIZE_RESERVE_LOOKAHEAD = 5
-OPENING_PRIZE_RESERVE_PROD_GAP = 1
 OPENING_PRIORITY_ENABLED = True
 OPENING_PRIORITY_TURN_LIMIT = 58
 OPENING_PRIORITY_WAIT_TURN_LIMIT = 42
@@ -668,12 +579,6 @@ OPENING_FAST_EXPAND_LOW_HOME_P2_BONUS = 1.55
 OPENING_FAST_EXPAND_LOW_TARGET_BLOCK_CORE_PROD = 4
 OPENING_FAST_EXPAND_LOW_TARGET_BLOCK_CORE_SHIPS = 30
 OPENING_FAST_EXPAND_LOW_TARGET_BLOCK_CORE_DIST = 24.0
-OPENING_LOW_PROD_DRAIN_BLOCK_ENABLED = True
-OPENING_LOW_PROD_DRAIN_SOURCE_MAX_PROD = 1
-OPENING_LOW_PROD_DRAIN_TARGET_MAX_PROD = 1
-OPENING_LOW_PROD_DRAIN_MIN_TARGET_SHIPS = 10
-OPENING_LOW_PROD_DRAIN_SEND_FRACTION = 0.78
-OPENING_LOW_PROD_DRAIN_POST_SHIPS = 2
 OPENING_FAST_EXPAND_SWARM_ENABLED = True
 OPENING_FAST_EXPAND_SWARM_MIN_PLANETS = 2
 OPENING_FAST_EXPAND_SWARM_MAX_SOURCES = 3
@@ -691,8 +596,6 @@ OPENING_LOCAL_QUALITY_HOME_KEEP = 1
 OPENING_LOCAL_QUALITY_CORE_KEEP = 3
 OPENING_LOCAL_QUALITY_MARGIN = 2
 OPENING_LOCAL_QUALITY_CORE_MARGIN = 3
-OPENING_LOCAL_QUALITY_LOW_HOME_FAST_MAX_SHIPS = 10
-OPENING_LOCAL_QUALITY_LOW_HOME_FAST_MAX_TURNS = 10
 OPENING_LOCAL_LOW_HOME_CORE_DIST = 22.0
 OPENING_LOCAL_LOW_HOME_CORE_SHIPS = 22
 OPENING_LOCAL_LOW_HOME_P3_DIST = 16.0
@@ -726,34 +629,6 @@ OPENING_DIRECT_CORE_MARGIN = 2
 OPENING_DIRECT_AFFORDABLE_RATIO = 0.72
 OPENING_DIRECT_RACE_ALLOWANCE_TWO_PLAYER = 12.0
 OPENING_DIRECT_RACE_ALLOWANCE_FOUR_PLAYER = 4.0
-FOUR_PLAYER_OPENING_WAIT_RELIEF_STEP = 4
-FOUR_PLAYER_OPENING_WAIT_RELIEF_PROD_CUSHION = 1
-FOUR_PLAYER_ROUTE_DETOUR_TURN_LIMIT = 55
-FOUR_PLAYER_ROUTE_DETOUR_MIN_PROD = 2
-FOUR_PLAYER_ROUTE_DETOUR_MARGIN = 1
-FOUR_PLAYER_ROUTE_DETOUR_SCORE_RATIO = 0.55
-FOUR_PLAYER_OPENING_SOFTEN_ENABLED = False
-FOUR_PLAYER_OPENING_SOFTEN_TURN_LIMIT = 38
-FOUR_PLAYER_OPENING_SOFTEN_MIN_TARGET_PROD = 3
-FOUR_PLAYER_OPENING_SOFTEN_MIN_SEND = 6
-FOUR_PLAYER_OPENING_SOFTEN_SOURCE_KEEP = 0
-FOUR_PLAYER_OPENING_SOFTEN_MAX_TURNS = 24
-FOUR_PLAYER_OPENING_SOFTEN_FOLLOWUP_TURNS = 12
-FOUR_PLAYER_OPENING_SOFTEN_FOLLOWUP_MARGIN = 1
-FOUR_PLAYER_OPENING_SOFTEN_MIN_DAMAGE_RATIO = 0.25
-FOUR_PLAYER_OPENING_SOFTEN_RACE_ALLOWANCE = 7.0
-FOUR_PLAYER_HIGH_SWING_SOFTEN_MIN_PROD = 4
-FOUR_PLAYER_HIGH_SWING_SOFTEN_MAX_DIST = 32.0
-FOUR_PLAYER_HIGH_SWING_SOFTEN_MAX_SHIPS = 40
-FOUR_PLAYER_HIGH_SWING_SOFTEN_EXTRA_TURNS = 10
-FOUR_PLAYER_HIGH_SWING_SOFTEN_SCORE_MULT = 2.15
-FOUR_PLAYER_HIGH_SWING_SOFTEN_REMAINING_MULT = 0.34
-OPENING_SOFTEN_FOLLOWUP_ENABLED = False
-OPENING_SOFTEN_FOLLOWUP_EXPIRE_BUFFER = 10
-OPENING_SOFTEN_FOLLOWUP_MAX_TURNS = 34
-OPENING_SOFTEN_FOLLOWUP_SOURCE_KEEP = 1
-OPENING_SOFTEN_FOLLOWUP_MARGIN = 1
-OPENING_SOFTEN_FOLLOWUP_MIN_PROD = 3
 OPENING_META_WAIT_SCORE = 0.038
 OPENING_META_MIN_ACTION_SCORE = 0.018
 OPENING_META_LOW_PROD_OVERSPEND = 12
@@ -799,7 +674,6 @@ class ShotOption:
     send_cap: int
     mission: str = "capture"
     anchor_turn: int | None = None
-    extra_arrivals: tuple = ()
 
 
 @dataclass
@@ -1227,40 +1101,37 @@ def fleet_target_planet_predictive(fleet, planets, initial_by_id, ang_vel, comet
             break
 
         for planet in planets:
-            for substep in range(1, FLEET_TARGET_SUBSTEPS + 1):
-                sample_turn = (turn - 1) + substep / FLEET_TARGET_SUBSTEPS
-                pos = predict_target_position(
-                    planet,
-                    sample_turn,
-                    initial_by_id,
-                    ang_vel,
-                    comets,
-                    comet_ids,
-                )
-                if pos is None:
-                    continue
-                segment_dist = point_to_segment_distance(
+            pos = predict_target_position(
+                planet,
+                turn,
+                initial_by_id,
+                ang_vel,
+                comets,
+                comet_ids,
+            )
+            if pos is None:
+                continue
+            if point_to_segment_distance(
+                pos[0],
+                pos[1],
+                prev_x,
+                prev_y,
+                cur_x,
+                cur_y,
+            ) <= planet.radius:
+                distance_key = point_to_segment_distance(
                     pos[0],
                     pos[1],
-                    prev_x,
-                    prev_y,
+                    fleet.x,
+                    fleet.y,
                     cur_x,
                     cur_y,
                 )
-                if segment_dist <= planet.radius + FLEET_TARGET_HIT_PADDING:
-                    distance_key = point_to_segment_distance(
-                        pos[0],
-                        pos[1],
-                        fleet.x,
-                        fleet.y,
-                        cur_x,
-                        cur_y,
-                    )
-                    key = (sample_turn, distance_key, planet.id)
-                    if best is None or key < best[0]:
-                        best = (key, planet)
+                key = (turn, distance_key, planet.id)
+                if best is None or key < best[0]:
+                    best = (key, planet)
         if best is not None and best[0][0] <= turn:
-            return best[1], int(math.ceil(best[0][0]))
+            return best[1], best[0][0]
         prev_x, prev_y = cur_x, cur_y
 
     return fleet_target_planet(fleet, planets)
@@ -1430,15 +1301,6 @@ def count_players(planets, fleets):
     return max(2, len(owners))
 
 
-def count_initial_players(initial_by_id):
-    owners = {
-        planet.owner
-        for planet in initial_by_id.values()
-        if planet.owner != -1
-    }
-    return len(owners)
-
-
 def nearest_distance_to_set(px, py, planets):
     if not planets:
         return 10**9
@@ -1484,9 +1346,7 @@ class WorldModel:
             planet for planet in self.neutral_planets if is_static_planet(planet)
         ]
 
-        self.active_num_players = count_players(planets, fleets)
-        self.initial_num_players = count_initial_players(initial_by_id)
-        self.num_players = max(2, self.active_num_players, self.initial_num_players, PROFILE_MATCH_PLAYERS)
+        self.num_players = count_players(planets, fleets)
         self.remaining_steps = max(1, TOTAL_STEPS - step)
         self.is_early = step < EARLY_TURN_LIMIT
         self.is_opening = step < OPENING_TURN_LIMIT
@@ -1581,37 +1441,11 @@ class WorldModel:
         self.best_probe_cache = {}
         self.reaction_cache = {}
         self.exact_need_cache = {}
-        self.debug_info = {}
-        self._debug_event_seen = defaultdict(set)
 
         self.total_visible_ships = sum(int(planet.ships) for planet in planets) + sum(
             int(fleet.ships) for fleet in fleets
         )
         self.total_production = sum(int(planet.production) for planet in planets)
-
-    def record_debug_count(self, key, sample=None, limit=ORBIT_LOG_SAMPLE_LIMIT):
-        debug = getattr(self, "debug_info", None)
-        if debug is None or not orbit_log_enabled(self.step):
-            return
-        counts = debug.setdefault("counts", {})
-        counts[key] = counts.get(key, 0) + 1
-        if sample is not None:
-            samples = debug.setdefault("samples", {}).setdefault(key, [])
-            if len(samples) < limit:
-                samples.append(sample)
-
-    def record_debug_event(self, key, row, limit=ORBIT_LOG_SAMPLE_LIMIT, dedupe_key=None):
-        debug = getattr(self, "debug_info", None)
-        if debug is None or not orbit_log_enabled(self.step):
-            return
-        if dedupe_key is not None:
-            seen = self._debug_event_seen[key]
-            if dedupe_key in seen:
-                return
-            seen.add(dedupe_key)
-        rows = debug.setdefault(key, [])
-        if len(rows) < limit:
-            rows.append(row)
 
     def is_static(self, planet_id):
         return is_static_planet(self.planet_by_id[planet_id])
@@ -1622,64 +1456,7 @@ class WorldModel:
     def source_inventory_left(self, source_id, spent_total):
         return max(0, int(self.planet_by_id[source_id].ships) - spent_total[source_id])
 
-    def predictive_first_route_hit(self, src, ships, angle):
-        start_x, start_y = launch_point(src.x, src.y, src.radius, angle)
-        dir_x = math.cos(angle)
-        dir_y = math.sin(angle)
-        speed = fleet_speed(ships)
-        prev_x, prev_y = start_x, start_y
-        best = None
-
-        for turn in range(1, ROUTE_SEARCH_HORIZON + 1):
-            cur_x = start_x + dir_x * speed * turn
-            cur_y = start_y + dir_y * speed * turn
-            outside = cur_x < 0.0 or cur_x > BOARD or cur_y < 0.0 or cur_y > BOARD
-
-            for planet in self.planets:
-                if planet.id == src.id:
-                    continue
-                for substep in range(1, FLEET_TARGET_SUBSTEPS + 1):
-                    sample_turn = (turn - 1) + substep / FLEET_TARGET_SUBSTEPS
-                    pos = predict_target_position(
-                        planet,
-                        sample_turn,
-                        self.initial_by_id,
-                        self.ang_vel,
-                        self.comets,
-                        self.comet_ids,
-                    )
-                    if pos is None:
-                        continue
-                    segment_dist = point_to_segment_distance(
-                        pos[0],
-                        pos[1],
-                        prev_x,
-                        prev_y,
-                        cur_x,
-                        cur_y,
-                    )
-                    if segment_dist <= planet.radius + FLEET_TARGET_HIT_PADDING:
-                        distance_key = point_to_segment_distance(
-                            pos[0],
-                            pos[1],
-                            start_x,
-                            start_y,
-                            cur_x,
-                            cur_y,
-                        )
-                        key = (sample_turn, distance_key, planet.id)
-                        if best is None or key < best[0]:
-                            best = (key, planet)
-
-            if best is not None and best[0][0] <= turn:
-                return best[1], int(math.ceil(best[0][0])), False
-            if outside:
-                break
-            prev_x, prev_y = cur_x, cur_y
-
-        return None, None, True
-
-    def route_hits_target_first(self, src, target, ships, angle, path_target_x, path_target_y):
+    def route_hits_target_first(self, src, target, angle, path_target_x, path_target_y):
         start_x, start_y = launch_point(src.x, src.y, src.radius, angle)
         target_hit = ray_circle_hit_distance(
             start_x,
@@ -1690,17 +1467,6 @@ class WorldModel:
             target.radius,
         )
         if target_hit is None:
-            self.record_debug_count(
-                "route_target_miss",
-                [
-                    int(src.id),
-                    int(target.id),
-                    round(float(angle), 4),
-                    int(target.owner),
-                    int(target.production),
-                    int(target.ships),
-                ],
-            )
             return False
 
         for other in self.planets:
@@ -1714,143 +1480,13 @@ class WorldModel:
                 other.y,
                 other.radius,
             )
-            if hit is None or hit + PATH_BLOCKER_EPSILON >= target_hit:
-                continue
-
-            guard_active = bool(OPENING_ROUTE_GUARD_ENABLED)
-            poor_target = poor_opening_target(other, self)
-            target_score = opening_target_score(src, target, self)
-            blocker_score = opening_target_score(src, other, self)
-            relaxed_detour = (
-                guard_active
-                and self.is_four_player
-                and self.step <= FOUR_PLAYER_ROUTE_DETOUR_TURN_LIMIT
-                and other.owner != self.player
-                and other.id not in self.comet_ids
-                and int(other.production) >= FOUR_PLAYER_ROUTE_DETOUR_MIN_PROD
-                and int(other.ships) + FOUR_PLAYER_ROUTE_DETOUR_MARGIN <= int(ships)
-                and blocker_score >= target_score * FOUR_PLAYER_ROUTE_DETOUR_SCORE_RATIO
-            )
-            row = [
-                int(src.id),
-                int(src.production),
-                int(src.ships),
-                int(target.id),
-                int(target.owner),
-                int(target.production),
-                int(target.ships),
-                int(other.id),
-                int(other.owner),
-                int(other.production),
-                int(other.ships),
-                round(float(target_hit), 2),
-                round(float(hit), 2),
-                round(float(target_score), 4),
-                round(float(blocker_score), 4),
-                1 if guard_active else 0,
-                1 if OPENING_ROUTE_GUARD_ALWAYS else 0,
-                1 if PROFILE_OPENING_ROUTE_GUARD else 0,
-                1 if poor_target else 0,
-                1 if relaxed_detour else 0,
-            ]
-            blocker_too_strong = (
-                other.owner != self.player
-                and not relaxed_detour
-                and int(other.ships) + 1 > int(ships)
-            )
-            if blocker_too_strong:
-                self.record_debug_count("route_blocker_too_strong", row)
-                self.record_debug_event(
-                    "route_trace",
-                    ["reject", "blocker_too_strong"] + row,
-                    dedupe_key=("reject", "blocker_too_strong", src.id, target.id, other.id),
-                )
+            if (
+                hit is not None
+                and hit + PATH_BLOCKER_EPSILON < target_hit
+                and self.is_opening
+                and (OPENING_ROUTE_GUARD_ENABLED or poor_opening_target(other, self))
+            ):
                 return False
-            if not self.is_opening:
-                continue
-            if (guard_active and not relaxed_detour) or poor_target:
-                reason = "guard" if guard_active else "poor"
-                if guard_active and poor_target:
-                    reason = "guard+poor"
-                self.record_debug_count("route_guard_reject", [reason] + row)
-                self.record_debug_event(
-                    "route_trace",
-                    ["reject", reason] + row,
-                    dedupe_key=("reject", reason, src.id, target.id, other.id),
-                )
-                return False
-            if relaxed_detour:
-                self.record_debug_count("route_guard_relaxed", row)
-                self.record_debug_event(
-                    "route_trace",
-                    ["pass", "four_player_detour"] + row,
-                    dedupe_key=("pass-detour", src.id, target.id, other.id),
-                )
-                continue
-            self.record_debug_count("route_blocker_pass", row)
-            self.record_debug_event(
-                "route_trace",
-                ["pass", "blocker"] + row,
-                dedupe_key=("pass", src.id, target.id, other.id),
-            )
-        predicted_target, predicted_eta, out_of_bounds = self.predictive_first_route_hit(src, ships, angle)
-        if predicted_target is None:
-            reason = "out_of_bounds" if out_of_bounds else "no_predictive_hit"
-            self.record_debug_count(
-                "route_predictive_miss",
-                [
-                    int(src.id),
-                    int(src.production),
-                    int(src.ships),
-                    int(target.id),
-                    int(target.owner),
-                    int(target.production),
-                    int(target.ships),
-                    int(ships),
-                    round(float(angle), 4),
-                    reason,
-                ],
-            )
-            self.record_debug_event(
-                "route_trace",
-                [
-                    "reject",
-                    "predictive_" + reason,
-                    int(src.id),
-                    int(target.id),
-                    int(target.owner),
-                    int(target.production),
-                    int(target.ships),
-                    int(ships),
-                    round(float(angle), 4),
-                ],
-                dedupe_key=("reject", "predictive", reason, src.id, target.id, ships),
-            )
-            return False
-        if predicted_target.id != target.id:
-            row = [
-                int(src.id),
-                int(src.production),
-                int(src.ships),
-                int(target.id),
-                int(target.owner),
-                int(target.production),
-                int(target.ships),
-                int(predicted_target.id),
-                int(predicted_target.owner),
-                int(predicted_target.production),
-                int(predicted_target.ships),
-                int(ships),
-                int(predicted_eta),
-                round(float(angle), 4),
-            ]
-            self.record_debug_count("route_predictive_first_mismatch", row)
-            self.record_debug_event(
-                "route_trace",
-                ["reject", "predictive_first_mismatch"] + row,
-                dedupe_key=("reject", "predictive_first_mismatch", src.id, target.id, predicted_target.id),
-            )
-            return False
         return True
 
     def plan_shot(self, src_id, target_id, ships):
@@ -1870,23 +1506,9 @@ class WorldModel:
             self.comets,
             self.comet_ids,
         )
-        if result is None:
-            self.record_debug_count(
-                "aim_no_solution",
-                [
-                    int(src.id),
-                    int(target.id),
-                    int(ships),
-                    int(src.production),
-                    int(src.ships),
-                    int(target.owner),
-                    int(target.production),
-                    int(target.ships),
-                ],
-            )
-        else:
+        if result is not None:
             angle, _, path_target_x, path_target_y = result
-            if not self.route_hits_target_first(src, target, ships, angle, path_target_x, path_target_y):
+            if not self.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
                 result = None
         self.shot_cache[key] = result
         return result
@@ -2187,7 +1809,6 @@ class WorldModel:
         arrival_turn,
         hold_until,
         planned_commitments=None,
-        extra_arrivals=(),
         upper_bound=None,
     ):
         planned_commitments = planned_commitments or {}
@@ -2202,7 +1823,6 @@ class WorldModel:
                 self.player,
                 arrival_turn=arrival_turn,
                 planned_commitments=planned_commitments,
-                extra_arrivals=extra_arrivals,
                 upper_bound=upper_bound,
             )
 
@@ -2211,8 +1831,7 @@ class WorldModel:
                 planet_id,
                 hold_until,
                 planned_commitments=planned_commitments,
-                extra_arrivals=tuple(extra_arrivals)
-                + ((arrival_turn, self.player, int(ships)),),
+                extra_arrivals=((arrival_turn, self.player, int(ships)),),
             )
             for turn in range(arrival_turn, hold_until + 1):
                 if timeline["owner_at"].get(turn) != self.player:
@@ -2678,37 +2297,6 @@ def enemy_pressure_to_planet(planet, world, horizon):
     return best_eta, max(strongest, stacked)
 
 
-def enemy_source_pressure_detail_to_planet(planet, world, horizon):
-    threats = []
-    for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
-        ships = max(1, int(enemy.ships))
-        seeded = world.best_probe_aim(enemy.id, planet.id, ships)
-        if seeded is None:
-            continue
-        _, aim = seeded
-        eta = aim[1]
-        if eta > horizon:
-            continue
-        threats.append((eta, ships, enemy.owner, enemy.id))
-
-    if not threats:
-        return None
-
-    best = None
-    for eta, ships, owner, source_id in threats:
-        stacked = sum(
-            other_ships
-            for other_eta, other_ships, other_owner, _ in threats
-            if other_owner == owner and abs(other_eta - eta) <= MULTI_ENEMY_STACK_WINDOW
-        )
-        key = (stacked, -eta, ships)
-        if best is None or key > best[0]:
-            best = (key, eta, stacked, owner, source_id)
-
-    _, eta, stack, owner, source_id = best
-    return eta, int(stack), int(owner), int(source_id)
-
-
 def fleet_predicted_hit_turn(fleet, planet, world, horizon):
     dir_x = math.cos(fleet.angle)
     dir_y = math.sin(fleet.angle)
@@ -3121,7 +2709,7 @@ def opening_priority_plan_shot(world, src, target, ships):
         )
         if aim is not None:
             angle, _, path_target_x, path_target_y = aim
-            if world.route_hits_target_first(src, target, ships, angle, path_target_x, path_target_y):
+            if world.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
                 return aim
     return world.plan_shot(src.id, target.id, ships)
 
@@ -3176,58 +2764,12 @@ def opening_fast_expand_target_ok(src, target, world):
         and int(src.production) <= 1
         and opening_fast_expand_close_core_prize(src, world)
     ):
-        world.record_debug_count(
-            "opening_fast_expand_low_target_near_core_block",
-            [
-                src.id,
-                target.id,
-                int(target.production),
-                int(target.ships),
-                1 if target_can_move(target, world.initial_by_id, world.comet_ids) else 0,
-            ],
-        )
         return False
     if planet_distance(src, target) > OPENING_FAST_EXPAND_MAX_DIST:
         return False
     enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
     my_dist = planet_distance(src, target)
     return enemy_dist + OPENING_FAST_EXPAND_RACE_ALLOWANCE >= my_dist
-
-
-def opening_low_prod_drain_risk(src, target, send, world, stage):
-    if (
-        not OPENING_LOW_PROD_DRAIN_BLOCK_ENABLED
-        or world.num_players < 4
-        or not world.is_opening
-        or int(src.production) > OPENING_LOW_PROD_DRAIN_SOURCE_MAX_PROD
-        or int(target.production) > OPENING_LOW_PROD_DRAIN_TARGET_MAX_PROD
-        or int(target.ships) < OPENING_LOW_PROD_DRAIN_MIN_TARGET_SHIPS
-    ):
-        return False
-
-    source_ships = max(1, int(src.ships))
-    post_ships = source_ships - int(send)
-    if (
-        int(send) < int(math.ceil(source_ships * OPENING_LOW_PROD_DRAIN_SEND_FRACTION))
-        and post_ships > OPENING_LOW_PROD_DRAIN_POST_SHIPS
-    ):
-        return False
-
-    world.record_debug_count(
-        "opening_low_prod_drain_block",
-        [
-            stage,
-            src.id,
-            target.id,
-            int(src.production),
-            int(target.production),
-            int(source_ships),
-            int(target.ships),
-            int(send),
-            int(post_ships),
-        ],
-    )
-    return True
 
 
 def opening_fast_expand_target_score(src, target, turns, send, world, source_count=1):
@@ -3283,8 +2825,6 @@ def opening_fast_expand_single_moves(world):
                 margin += OPENING_FAST_EXPAND_CORE_MARGIN
             send = min(available, max(int(needed), int(target.ships) + margin))
             if send < needed:
-                continue
-            if opening_low_prod_drain_risk(src, target, send, world, "fast_expand"):
                 continue
             aim = opening_priority_plan_shot(world, src, target, send)
             if aim is None:
@@ -3532,9 +3072,6 @@ def opening_direct_candidates(src, world):
         if wait > max_wait:
             continue
 
-        if opening_low_prod_drain_risk(src, target, desired, world, "direct"):
-            continue
-
         score = opening_direct_target_score(src, target, desired, turns, wait, world)
         candidates.append(
             {
@@ -3732,13 +3269,13 @@ def opening_mainline_source_keep(src, world):
 
 def opening_mainline_score(src, target, needed, turns, wait_turns, world):
     production_value = float(target.production) ** OPENING_MAINLINE_PROD_POWER
-    my_dist = planet_distance(src, target)
     if world.is_static(target.id):
         production_value *= OPENING_SCORE_STATIC_MULT
     if target.production <= 1:
         production_value *= OPENING_MAINLINE_LOW_PROD_MULT
 
     enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
+    my_dist = planet_distance(src, target)
     race_mult = 1.0
     if enemy_dist + 5.0 < my_dist:
         race_mult = 0.55
@@ -3944,13 +3481,6 @@ def build_opening_local_quality_moves(world):
             if target.production >= CORE_PRODUCTION:
                 margin += OPENING_LOCAL_QUALITY_CORE_MARGIN
             desired = max(needed, int(target.ships) + margin)
-            if (
-                src.production <= 1
-                and target.production >= CORE_PRODUCTION
-                and int(target.ships) <= OPENING_LOCAL_QUALITY_LOW_HOME_FAST_MAX_SHIPS
-                and turns <= OPENING_LOCAL_QUALITY_LOW_HOME_FAST_MAX_TURNS
-            ):
-                desired = max(needed, int(target.ships) + 1)
             if desired > future_cap:
                 continue
             if desired <= available_now:
@@ -4550,131 +4080,6 @@ def build_opening_heavy_prize_moves(world):
     return None
 
 
-def opening_heavy_prize_reservation(world):
-    if (
-        not OPENING_PRIZE_RESERVE_ENABLED
-        or not world.is_opening
-        or world.step < OPENING_HEAVY_PRIZE_PLAN_START
-        or world.step > OPENING_HEAVY_PRIZE_PLAN_END
-        or len(world.my_planets) < 3
-        or world.my_prod < 16
-    ):
-        return {}
-
-    best = None
-    rows = []
-    for target in world.neutral_planets:
-        if target.id in world.comet_ids:
-            continue
-        if target.production < OPENING_HEAVY_PRIZE_MIN_PROD:
-            continue
-        if int(target.ships) < OPENING_HEAVY_PRIZE_MIN_SHIPS:
-            continue
-        if my_incoming_ships_to(target, world) >= int(target.ships) + 1:
-            continue
-
-        my_dist = nearest_distance_to_set(target.x, target.y, world.my_planets)
-        enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
-        if enemy_dist + 10.0 < my_dist:
-            continue
-
-        options = []
-        for src in world.my_planets:
-            if is_core_planet(src, world):
-                fleet_eta, fleet_stack = enemy_fleet_pressure_to_planet(
-                    src,
-                    world,
-                    OPENING_HEAVY_PRIZE_SOURCE_THREAT_HORIZON,
-                )
-                if (
-                    fleet_eta is not None
-                    and fleet_stack >= max(8, int(src.production) * 3)
-                ):
-                    continue
-
-            current_available = opening_heavy_prize_source_available(src, world)
-            future_available = current_available + int(src.production) * OPENING_PRIZE_RESERVE_LOOKAHEAD
-            if future_available < OPENING_HEAVY_PRIZE_MIN_SOURCE:
-                continue
-
-            send_probe = min(
-                future_available,
-                max(OPENING_HEAVY_PRIZE_MIN_SOURCE, int(target.ships) + 1),
-            )
-            aim = world.plan_shot(src.id, target.id, send_probe)
-            if aim is None:
-                continue
-            angle, turns, _, _ = aim
-            if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
-                continue
-            options.append((turns, -future_available, src, current_available, future_available, angle))
-
-        if len(options) < 2:
-            continue
-        options.sort()
-        selected = options[:OPENING_HEAVY_PRIZE_MAX_SOURCES]
-        current_total = sum(item[3] for item in selected)
-        future_total = sum(item[4] for item in selected)
-        joint_turn = max(item[0] for item in selected)
-        need = world.min_ships_to_own_at(
-            target.id,
-            joint_turn,
-            world.player,
-            upper_bound=future_total,
-        )
-        desired = max(need + OPENING_HEAVY_PRIZE_MARGIN, int(target.ships) + 1)
-        if need <= 0 or current_total >= desired or future_total < desired:
-            continue
-
-        sources = [item[2].id for item in selected]
-        shortage = desired - current_total
-        row = [
-            int(target.id),
-            int(target.production),
-            int(target.ships),
-            int(joint_turn),
-            int(desired),
-            int(current_total),
-            int(future_total),
-            int(shortage),
-            [int(src_id) for src_id in sources],
-        ]
-        rows.append(row)
-        score = (
-            int(target.production),
-            -int(shortage),
-            -int(target.ships),
-            -int(joint_turn),
-            -int(target.id),
-        )
-        if best is None or score > best[0]:
-            best = (score, target, sources)
-
-    if best is None:
-        return {}
-
-    _, target, sources = best
-    return {
-        "target": int(target.id),
-        "prod": int(target.production),
-        "sources": set(int(src_id) for src_id in sources),
-        "rows": rows[:ORBIT_LOG_SAMPLE_LIMIT],
-    }
-
-
-def opening_prize_reserve_blocks(src, target, policy):
-    reserve = policy.get("opening_prize_reserve") or {}
-    sources = reserve.get("sources") or set()
-    if int(src.id) not in sources:
-        return False
-    if int(target.id) == int(reserve.get("target", -1)):
-        return False
-    if target.owner != -1:
-        return False
-    prize_prod = int(reserve.get("prod") or 0)
-    return int(target.production) + OPENING_PRIZE_RESERVE_PROD_GAP <= prize_prod
-
-
 def angle_delta(first, second):
     return abs(math.atan2(math.sin(first - second), math.cos(first - second)))
 
@@ -4883,7 +4288,7 @@ def stacked_enemy_proactive_keep(planet, world):
     return int(best_stacked * MULTI_ENEMY_PROACTIVE_RATIO)
 
 
-def swarm_eta_tolerance(options, target, world, include_dynamic=True):
+def swarm_eta_tolerance(options, target, world):
     tolerance = MULTI_SOURCE_ETA_TOLERANCE
     if len(options) >= 3:
         tolerance = THREE_SOURCE_ETA_TOLERANCE
@@ -4902,16 +4307,6 @@ def swarm_eta_tolerance(options, target, world, include_dynamic=True):
         tolerance += BEHIND_SWARM_ETA_BONUS
         if target.owner not in (-1, world.player):
             tolerance += BEHIND_HOSTILE_SWARM_ETA_BONUS
-    dynamic_eta_enabled = (
-        PROFILE_SWARM_ETA_RELAX
-        and os.environ.get("ORBIT_DISABLE_4P_ETA_RELAX") != "1"
-    )
-    if include_dynamic and dynamic_eta_enabled and world.is_four_player:
-        tolerance += FOUR_PLAYER_SWARM_ETA_BONUS
-        if int(target.production) >= CORE_PRODUCTION:
-            tolerance += FOUR_PLAYER_HIGH_PROD_SWARM_ETA_BONUS
-        if world.my_prod + BEHIND_HOSTILE_BREAK_OWNER_PROD_GAP < max_enemy_prod:
-            tolerance += FOUR_PLAYER_BEHIND_SWARM_ETA_BONUS
     return tolerance
 
 
@@ -4965,146 +4360,6 @@ def detect_enemy_crashes(world):
     return crashes
 
 
-def source_can_be_emptied_for_policy(planet, world):
-    if planet.id in world.comet_ids and world.comet_life(planet.id) <= COMET_EVAC_LIFE_TURNS:
-        return True
-    fall_turn = world.fall_turn_map.get(planet.id)
-    return (
-        fall_turn is not None
-        and fall_turn <= DOOMED_EVAC_TURN_LIMIT
-        and (planet.production >= CORE_PRODUCTION or is_defense_core_planet(planet, world))
-    )
-
-
-def low_prod_home_has_high_swing_opening_target(planet, world):
-    if (
-        not LOW_PROD_HOME_RESERVE_RELIEF_ENABLED
-        or not world.is_four_player
-        or not world.is_opening
-        or world.step > LOW_PROD_HOME_RESERVE_RELIEF_TURN_LIMIT
-        or not is_profile_home(planet)
-        or int(planet.production) > 1
-        or planet.id in world.comet_ids
-        or world.fall_turn_map.get(planet.id) is not None
-        or world.first_enemy_map.get(planet.id) is not None
-    ):
-        return False
-
-    for target in world.neutral_planets:
-        if target.id in world.comet_ids:
-            continue
-        if int(target.production) < LOW_PROD_HOME_RESERVE_RELIEF_MIN_TARGET_PROD:
-            continue
-        if int(target.ships) > LOW_PROD_HOME_RESERVE_RELIEF_MAX_TARGET_SHIPS:
-            continue
-        my_dist = planet_distance(planet, target)
-        if my_dist > LOW_PROD_HOME_RESERVE_RELIEF_MAX_DIST:
-            continue
-        enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
-        if enemy_dist + LOW_PROD_HOME_RESERVE_RELIEF_ENEMY_ALLOWANCE < my_dist:
-            continue
-        return True
-    return False
-
-
-def low_prod_home_reserve_relief_keep(planet, world):
-    if not low_prod_home_has_high_swing_opening_target(planet, world):
-        return None
-    return min(int(planet.ships), LOW_PROD_HOME_RESERVE_RELIEF_KEEP)
-
-
-def prod_gap_swing_for_loss(target, owner_after, world):
-    production = int(target.production)
-    if owner_after == world.player:
-        return 0
-    if owner_after == -1:
-        return production
-    return production * 2
-
-
-def prod_gap_swing_for_capture(target, world):
-    production = int(target.production)
-    if target.owner == world.player:
-        return 0
-    if target.owner == -1:
-        return production
-    return production * 2
-
-
-def prod_swing_score_multiplier(target, fall_turn, world):
-    swing = prod_gap_swing_for_loss(target, None, world)
-    multiplier = 1.0 + min(0.70, swing * PROD_SWING_SCORE_WEIGHT)
-    if fall_turn <= PROD_SWING_HORIZON and swing >= PROD_SWING_HIGH:
-        multiplier *= PROD_SWING_URGENT_MULT
-    return multiplier
-
-
-def approx_swing_rescue_available(target, fall_turn, world, policy=None):
-    need = max(1, int(world.keep_needed_map.get(target.id, 0)))
-    if need <= 0:
-        return False
-    for src in nearest_sources_to_target(target, [planet for planet in world.my_planets if planet.id != target.id], 5):
-        if policy is None:
-            reserve = int(world.keep_needed_map.get(src.id, 0))
-            available = max(0, int(src.ships) - reserve)
-        else:
-            base_available = int(policy.get("attack_budget", {}).get(src.id, 0))
-            available = swing_rescue_source_available(
-                src,
-                target,
-                fall_turn,
-                world,
-                policy,
-                base_available,
-            )
-        if available < need or available < PARTIAL_SOURCE_MIN_SHIPS:
-            continue
-        turns = travel_time(src.x, src.y, src.radius, target.x, target.y, target.radius, available)
-        if turns <= fall_turn:
-            return True
-    return False
-
-
-def prod_swing_metrics(world, policy=None, horizon=PROD_SWING_HORIZON):
-    rows = []
-    threatened_prod_sum = 0
-    threatened_gap_swing = 0
-    avoidable_prod_swing = 0
-
-    for target in world.my_planets:
-        fall_turn = world.fall_turn_map.get(target.id)
-        if fall_turn is None or fall_turn < 1 or fall_turn > horizon:
-            continue
-        owner_after, _ = world.projected_state(target.id, fall_turn)
-        swing = prod_gap_swing_for_loss(target, owner_after, world)
-        if swing <= 0:
-            continue
-        threatened_prod_sum += int(target.production)
-        threatened_gap_swing += swing
-        avoidable = approx_swing_rescue_available(target, fall_turn, world, policy=policy)
-        if avoidable:
-            avoidable_prod_swing += swing
-        rows.append(
-            [
-                int(target.id),
-                int(fall_turn),
-                int(target.production),
-                int(target.ships),
-                int(owner_after),
-                int(swing),
-                1 if avoidable else 0,
-            ]
-        )
-
-    rows.sort(key=lambda item: (item[1], -item[5], item[0]))
-    return {
-        "threatened_prod_sum": int(threatened_prod_sum),
-        "threatened_gap_swing": int(threatened_gap_swing),
-        "avoidable_prod_swing": int(avoidable_prod_swing),
-        "rows": rows[:ORBIT_LOG_SAMPLE_LIMIT],
-    }
-
-
 def build_policy_state(world, deadline=None):
     def expired():
         return deadline is not None and time.perf_counter() > deadline
@@ -5121,7 +4376,6 @@ def build_policy_state(world, deadline=None):
     reserve = {}
     attack_budget = {}
     reaction_time_map = {}
-    fallback_budget = []
 
     for target in world.planets:
         if expired():
@@ -5206,22 +4460,6 @@ def build_policy_state(world, deadline=None):
                     proactive_keep = max(proactive_keep, int(predicted_enemy_stack * fleet_ratio))
 
         reserve[planet.id] = min(int(planet.ships), max(exact_keep, proactive_keep))
-        low_home_relief_keep = low_prod_home_reserve_relief_keep(planet, world)
-        if low_home_relief_keep is not None and low_home_relief_keep < reserve[planet.id]:
-            old_reserve = reserve[planet.id]
-            reserve[planet.id] = int(low_home_relief_keep)
-            world.record_debug_count(
-                "low_prod_home_reserve_relief",
-                [
-                    planet.id,
-                    int(planet.production),
-                    int(planet.ships),
-                    int(old_reserve),
-                    int(reserve[planet.id]),
-                    int(world.my_prod),
-                    int(world.leading_enemy_prod),
-                ],
-            )
         fall_turn = world.fall_turn_map.get(planet.id)
         first_enemy = world.first_enemy_map.get(planet.id)
         if predicted_enemy_eta is not None:
@@ -5230,13 +4468,8 @@ def build_policy_state(world, deadline=None):
                 if first_enemy is None
                 else min(first_enemy, predicted_enemy_eta)
             )
-        reserve_relief_start = (
-            FOUR_PLAYER_EARLY_RESERVE_RELIEF_START
-            if world.is_four_player
-            else RESERVE_RELIEF_START_STEP
-        )
         if (
-            world.step >= reserve_relief_start
+            world.step >= RESERVE_RELIEF_START_STEP
             and exact_keep <= 0
             and first_enemy is None
             and fall_turn is None
@@ -5254,46 +4487,11 @@ def build_policy_state(world, deadline=None):
             prod_trapped = world.my_prod + RESERVE_RELIEF_PROD_GAP < max_enemy_prod
             total_trapped = world.my_total < world.max_enemy_strength * RESERVE_RELIEF_TOTAL_RATIO
             if prod_trapped or total_trapped:
-                early_four_player_relief = (
-                    world.is_four_player and world.step < RESERVE_RELIEF_START_STEP
-                )
-                keep_base = (
-                    FOUR_PLAYER_EARLY_RESERVE_RELIEF_KEEP_BASE
-                    if early_four_player_relief
-                    else RESERVE_RELIEF_KEEP_BASE
-                )
-                keep_weight = (
-                    FOUR_PLAYER_EARLY_RESERVE_RELIEF_PROD_WEIGHT
-                    if early_four_player_relief
-                    else RESERVE_RELIEF_PROD_WEIGHT
-                )
-                keep_fraction = (
-                    FOUR_PLAYER_EARLY_RESERVE_RELIEF_KEEP_FRACTION
-                    if early_four_player_relief
-                    else RESERVE_RELIEF_KEEP_FRACTION
-                )
                 relief_keep = max(
-                    keep_base + int(planet.production) * keep_weight,
-                    int(int(planet.ships) * keep_fraction),
+                    RESERVE_RELIEF_KEEP_BASE + int(planet.production) * RESERVE_RELIEF_PROD_WEIGHT,
+                    int(int(planet.ships) * RESERVE_RELIEF_KEEP_FRACTION),
                 )
-                old_reserve = reserve[planet.id]
                 reserve[planet.id] = min(reserve[planet.id], relief_keep)
-                if reserve[planet.id] < old_reserve:
-                    world.record_debug_count(
-                        "reserve_relief",
-                        [
-                            planet.id,
-                            int(planet.production),
-                            int(planet.ships),
-                            int(old_reserve),
-                            int(reserve[planet.id]),
-                            int(max_enemy_prod),
-                            int(world.my_prod),
-                            1 if prod_trapped else 0,
-                            1 if total_trapped else 0,
-                            1 if early_four_player_relief else 0,
-                        ],
-                    )
         available = max(0, int(planet.ships) - reserve[planet.id])
         meaningful_predicted_threat = predicted_enemy_stack >= max(8, int(planet.production) * 3)
         if (
@@ -5351,37 +4549,12 @@ def build_policy_state(world, deadline=None):
 
         attack_budget[planet.id] = available
 
-    for planet in world.my_planets:
-        if planet.id in reserve and planet.id in attack_budget:
-            continue
-        fallback_keep = min(
-            int(planet.ships),
-            max(
-                int(world.keep_needed_map.get(planet.id, 0)),
-                0 if source_can_be_emptied_for_policy(planet, world) else core_passive_keep(planet, world),
-            ),
-        )
-        fallback_available = max(0, int(planet.ships) - fallback_keep)
-        reserve[planet.id] = fallback_keep
-        attack_budget[planet.id] = fallback_available
-        fallback_budget.append(
-            [
-                int(planet.id),
-                int(planet.production),
-                int(planet.ships),
-                int(fallback_keep),
-                int(fallback_available),
-            ]
-        )
-
     return {
         "indirect_wealth_map": indirect_wealth_map,
         "reserve": reserve,
         "attack_budget": attack_budget,
         "reaction_time_map": reaction_time_map,
         "local_neutral_opportunity": local_neutral_opportunity(world),
-        "fallback_budget": fallback_budget,
-        "opening_prize_reserve": opening_heavy_prize_reservation(world),
     }
 
 
@@ -5414,26 +4587,6 @@ def build_modes(world):
         "is_finishing": is_finishing,
         "attack_margin_mult": attack_margin_mult,
     }
-
-
-def prod_pressure_active(world, modes=None):
-    if world.is_opening:
-        return False
-    if modes is not None and modes.get("is_behind"):
-        return True
-    return (
-        world.enemy_prod >= world.my_prod + PROD_PRESSURE_GAP
-        or world.my_prod < world.enemy_prod * PROD_PRESSURE_RATIO
-    )
-
-
-def high_prod_hostile_available(world):
-    return any(
-        planet.owner not in (-1, world.player)
-        and planet.id not in world.comet_ids
-        and int(planet.production) >= CORE_PRODUCTION
-        for planet in world.enemy_planets
-    )
 
 
 def is_safe_neutral(target, policy):
@@ -5518,20 +4671,12 @@ def opening_filter(target, arrival_turns, needed, src_available, world, policy):
         return False
     if poor_opening_target(target, world):
         return True
-    my_t, enemy_t = policy_reaction_times(target.id, policy)
-    if (
-        not world.is_four_player
-        and target.production >= OPENING_CONTESTED_CORE_MIN_PROD
-        and arrival_turns <= OPENING_CONTESTED_CORE_MAX_TURNS
-        and needed <= src_available
-        and enemy_t + OPENING_CONTESTED_CORE_ENEMY_LEAD < my_t
-    ):
-        return False
     if opening_far_neutral_detour(target, arrival_turns, world):
         return True
     if world.is_static(target.id):
         return False
 
+    my_t, enemy_t = policy_reaction_times(target.id, policy)
     reaction_gap = enemy_t - my_t
     if (
         target.production >= SAFE_OPENING_PROD_THRESHOLD
@@ -5724,8 +4869,6 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
         if turns_profit <= 0:
             return -1.0
 
-    prod_pressure = prod_pressure_active(world, modes)
-    hostile_core_available = high_prod_hostile_available(world)
     value = target.production * turns_profit
     value += policy["indirect_wealth_map"][target.id] * turns_profit * INDIRECT_VALUE_SCALE
 
@@ -5763,22 +4906,6 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
                 if target.production >= CORE_PRODUCTION
                 else MIDGAME_HOSTILE_WITH_NEUTRALS_MULT
             )
-        if prod_pressure and not modes["is_finishing"]:
-            if int(target.production) >= CORE_PRODUCTION:
-                value *= PROD_PRESSURE_HOSTILE_CORE_MULT
-                world.record_debug_count(
-                    "prod_pressure_hostile_core",
-                    [target.id, int(target.production), int(world.my_prod), int(world.enemy_prod)],
-                )
-            elif (
-                hostile_core_available
-                and int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD
-            ):
-                value *= PROD_PRESSURE_LOW_HOSTILE_MULT
-                world.record_debug_count(
-                    "prod_pressure_low_hostile",
-                    [target.id, int(target.production), int(world.my_prod), int(world.enemy_prod)],
-                )
 
     if target.owner == -1:
         value *= opening_home_half_core_multiplier(target, world)
@@ -5806,34 +4933,6 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
                 and nearest_distance_to_set(target.x, target.y, world.my_planets) <= 18.0
             ):
                 value *= 1.8
-        if prod_pressure and hostile_core_available and not modes["is_finishing"]:
-            if int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD:
-                value *= PROD_PRESSURE_LOW_NEUTRAL_MULT
-                world.record_debug_count(
-                    "prod_pressure_low_neutral",
-                    [
-                        target.id,
-                        int(target.production),
-                        int(target.ships),
-                        int(world.my_prod),
-                        int(world.enemy_prod),
-                    ],
-                )
-            elif int(target.ships) >= max(
-                PROD_PRESSURE_HEAVY_NEUTRAL_MIN_SHIPS,
-                int(target.production) * 12,
-            ):
-                value *= PROD_PRESSURE_HEAVY_NEUTRAL_MULT
-                world.record_debug_count(
-                    "prod_pressure_heavy_neutral",
-                    [
-                        target.id,
-                        int(target.production),
-                        int(target.ships),
-                        int(world.my_prod),
-                        int(world.enemy_prod),
-                    ],
-                )
 
     if target.id in world.comet_ids:
         value *= COMET_VALUE_MULT
@@ -5894,33 +4993,6 @@ def post_capture_enemy_stack(target, arrival_turns, world):
         if start < eta <= end:
             stack += int(ships)
     return stack
-
-
-def post_capture_reaction_gap(target, captured_ships_after, world):
-    if (
-        not POST_CAPTURE_REACTION_ENABLED
-        or not world.is_four_player
-        or world.is_very_late
-        or target.production < POST_CAPTURE_REACTION_MIN_PROD
-        or target.id in world.comet_ids
-    ):
-        return 0, None, 0, 0
-
-    eta, stack = enemy_pressure_to_planet(
-        target,
-        world,
-        POST_CAPTURE_REACTION_WINDOW,
-    )
-    if eta >= 10**8 or stack <= 0:
-        return 0, None, 0, 0
-
-    eta = max(1, int(math.ceil(eta)))
-    required_after = max(
-        POST_CAPTURE_REACTION_MIN_GARRISON,
-        int(stack) + POST_CAPTURE_REACTION_MARGIN - int(target.production) * eta,
-    )
-    gap = max(0, int(required_after) - int(math.floor(captured_ships_after)))
-    return gap, eta, int(stack), int(required_after)
 
 
 def preferred_send(target, base_needed, arrival_turns, src_available, world, modes, policy):
@@ -6056,124 +5128,16 @@ def settle_plan(
             tested[send] = None
             return None
 
-        if (
-            mission == "capture"
-            and target.owner != world.player
-            and not world.is_very_late
-        ):
-            capture_turn = int(math.ceil(turns))
-            hold_window = (
-                POST_CAPTURE_FOUR_PLAYER_HIGH_PROD_HOLD_WINDOW
-                if world.is_four_player and target.production >= CORE_PRODUCTION
-                else (
-                    POST_CAPTURE_HIGH_PROD_HOLD_WINDOW
-                    if target.production >= CORE_PRODUCTION
-                    else POST_CAPTURE_HOLD_WINDOW
-                )
-            )
-            hold_until = min(HORIZON, capture_turn + hold_window)
-            hold_need = world.ships_needed_to_capture_and_hold(
-                target.id,
-                turns,
-                hold_until,
-                planned_commitments=planned_commitments,
-                upper_bound=src_cap,
-            )
-            if hold_need > need:
-                world.record_debug_count(
-                    "capture_hold_need",
-                    [
-                        int(src.id),
-                        int(target.id),
-                        int(target.production),
-                        int(capture_turn),
-                        int(hold_until),
-                        int(need),
-                        int(hold_need),
-                        int(src_cap),
-                    ],
-                )
-                need = hold_need
-                if need > src_cap:
-                    tested[send] = None
-                    return None
-
-            owner_after, ships_after = world.projected_state(
-                target.id,
-                capture_turn,
-                planned_commitments=planned_commitments,
-                extra_arrivals=((capture_turn, world.player, int(need)),),
-            )
-            if owner_after == world.player:
-                reaction_gap, reaction_eta, reaction_stack, required_after = post_capture_reaction_gap(
-                    target,
-                    ships_after,
-                    world,
-                )
-                if reaction_gap > 0:
-                    adjusted_need = need + reaction_gap
-                    world.record_debug_count(
-                        "capture_reaction_need",
-                        [
-                            int(src.id),
-                            int(target.id),
-                            int(target.owner),
-                            int(target.production),
-                            int(capture_turn),
-                            int(need),
-                            int(math.floor(ships_after)),
-                            int(reaction_eta),
-                            int(reaction_stack),
-                            int(required_after),
-                            int(adjusted_need),
-                            int(src_cap),
-                            world.fall_turn_map.get(src.id),
-                        ],
-                    )
-                    need = adjusted_need
-                    if need > src_cap:
-                        tested[send] = None
-                        return None
-
         if mission in ("snipe", "crash_exploit"):
             desired = need
         elif mission == "rescue":
-            base_desired = min(
+            desired = min(
                 src_cap,
                 max(
                     need,
                     need + DEFENSE_SEND_MARGIN_BASE + target.production * DEFENSE_SEND_MARGIN_PROD_WEIGHT,
                 ),
             )
-            pressure_desired, pressure_eta, pressure_stack = high_prod_rescue_pressure_send(
-                src,
-                target,
-                need,
-                src_cap,
-                world,
-            )
-            if pressure_desired > base_desired:
-                pressure_desired = min(
-                    pressure_desired,
-                    base_desired + HIGH_PROD_RESCUE_PRESSURE_EXTRA_CAP,
-                )
-            desired = max(base_desired, pressure_desired)
-            if pressure_desired > base_desired:
-                world.record_debug_count(
-                    "rescue_pressure_send",
-                    [
-                        int(src.id),
-                        int(target.id),
-                        int(target.production),
-                        world.fall_turn_map.get(target.id),
-                        int(need),
-                        int(base_desired),
-                        int(pressure_eta),
-                        int(pressure_stack),
-                        int(pressure_desired),
-                        int(src_cap),
-                    ],
-                )
         else:
             desired = min(
                 src_cap,
@@ -6427,7 +5391,6 @@ def settle_reinforce_plan(
     planned_commitments,
     hold_until,
     max_arrival_turn,
-    extra_arrivals=(),
     max_iter=4,
 ):
     if src_cap < 1:
@@ -6458,7 +5421,6 @@ def settle_reinforce_plan(
             turns,
             hold_until,
             planned_commitments=planned_commitments,
-            extra_arrivals=extra_arrivals,
             upper_bound=src_cap,
         )
         if need <= 0 or need > src_cap:
@@ -6620,192 +5582,20 @@ def build_snipe_mission(src, target, src_available, world, planned_commitments, 
     return best
 
 
-def swing_rescue_source_available(
-    src,
-    target,
-    fall_turn,
-    world,
-    policy,
-    base_available,
-    debug_count=None,
-):
-    if (
-        not SWING_RESCUE_RELIEF_ENABLED
-        or not world.is_four_player
-        or fall_turn is None
-        or fall_turn < 1
-        or fall_turn > SWING_RESCUE_RELIEF_HORIZON
-        or target.id == src.id
-        or src.id in world.comet_ids
-    ):
-        return int(base_available)
-
-    target_owner_after, _ = world.projected_state(target.id, fall_turn)
-    target_swing = prod_gap_swing_for_loss(target, target_owner_after, world)
-    if target_swing < SWING_RESCUE_RELIEF_MIN_SWING:
-        return int(base_available)
-
-    src_fall_turn = world.fall_turn_map.get(src.id)
-    source_swing = 0
-    if src_fall_turn is not None and src_fall_turn <= fall_turn + SWING_RESCUE_RELIEF_SOURCE_FALL_BUFFER:
-        source_owner_after, _ = world.projected_state(src.id, src_fall_turn)
-        source_swing = prod_gap_swing_for_loss(src, source_owner_after, world)
-        if src_fall_turn <= fall_turn and source_swing >= target_swing:
-            return int(base_available)
-        if source_swing > target_swing:
-            return int(base_available)
-
-    keep_fraction = (
-        SWING_RESCUE_RELIEF_THREATENED_KEEP_FRACTION
-        if source_swing > 0
-        else SWING_RESCUE_RELIEF_KEEP_FRACTION
-    )
-    relaxed_keep = max(
-        int(world.keep_needed_map.get(src.id, 0)),
-        SWING_RESCUE_RELIEF_KEEP_BASE
-        + int(src.production) * SWING_RESCUE_RELIEF_KEEP_PROD_WEIGHT,
-        int(int(src.ships) * keep_fraction),
-    )
-    relaxed_available = max(0, int(src.ships) - int(relaxed_keep))
-    max_relief_send = max(0, int(int(src.ships) * SWING_RESCUE_RELIEF_MAX_SEND_FRACTION))
-    relaxed_available = min(relaxed_available, max_relief_send)
-    if relaxed_available > int(base_available) and debug_count is not None:
-        debug_count(
-            "swing_rescue_budget_relief",
-            [
-                int(src.id),
-                int(src.production),
-                int(src.ships),
-                int(base_available),
-                int(relaxed_available),
-                None if src_fall_turn is None else int(src_fall_turn),
-                int(source_swing),
-                int(target.id),
-                int(target.production),
-                int(fall_turn),
-                int(target_swing),
-            ],
-        )
-    return max(int(base_available), int(relaxed_available))
-
-
-def high_prod_rescue_source_available(src, target, fall_turn, world, policy, debug_count=None):
-    base_available = int(policy["attack_budget"].get(src.id, 0))
-    swing_available = swing_rescue_source_available(
-        src,
-        target,
-        fall_turn,
-        world,
-        policy,
-        base_available,
-        debug_count=debug_count,
-    )
-    if swing_available > base_available:
-        return swing_available
-    if (
-        not world.is_four_player
-        or int(target.production) < HIGH_PROD_RESCUE_RELIEF_MIN_PROD
-        or fall_turn > HIGH_PROD_RESCUE_RELIEF_FALL_TURNS
-        or int(src.production) > HIGH_PROD_RESCUE_RELIEF_SOURCE_MAX_PROD
-        or int(src.production) >= int(target.production)
-    ):
-        return base_available
-
-    src_fall_turn = world.fall_turn_map.get(src.id)
-    if src_fall_turn is not None and src_fall_turn <= fall_turn:
-        return base_available
-
-    relaxed_keep = max(
-        int(world.keep_needed_map.get(src.id, 0)),
-        HIGH_PROD_RESCUE_RELIEF_KEEP_BASE
-        + int(src.production) * HIGH_PROD_RESCUE_RELIEF_KEEP_PROD_WEIGHT,
-    )
-    relaxed_available = max(0, int(src.ships) - int(relaxed_keep))
-    if relaxed_available > base_available and debug_count is not None:
-        debug_count(
-            "rescue_budget_relief",
-            [
-                src.id,
-                int(src.production),
-                int(src.ships),
-                int(base_available),
-                int(relaxed_available),
-                target.id,
-                int(target.production),
-                int(fall_turn),
-            ],
-        )
-    return max(base_available, relaxed_available)
-
-
-def high_prod_rescue_pressure_send(src, target, need, src_cap, world):
-    fall_turn = world.fall_turn_map.get(target.id)
-    if (
-        not HIGH_PROD_RESCUE_PRESSURE_ENABLED
-        or not world.is_four_player
-        or fall_turn is None
-        or fall_turn > HIGH_PROD_RESCUE_RELIEF_FALL_TURNS
-        or int(target.production) < HIGH_PROD_RESCUE_RELIEF_MIN_PROD
-        or int(src.production) > HIGH_PROD_RESCUE_RELIEF_SOURCE_MAX_PROD
-        or int(src.production) >= int(target.production)
-    ):
-        return 0, None, 0
-
-    pressure_eta, pressure_stack = enemy_pressure_to_planet(
-        target,
-        world,
-        HIGH_PROD_RESCUE_PRESSURE_HORIZON,
-    )
-    if pressure_eta >= 10**8 or pressure_stack < HIGH_PROD_RESCUE_PRESSURE_MIN_STACK:
-        return 0, None, int(pressure_stack)
-
-    desired = min(
-        int(src_cap),
-        max(
-            int(need),
-            int(math.ceil(pressure_stack * HIGH_PROD_RESCUE_PRESSURE_SEND_RATIO)),
-        ),
-    )
-    return desired, int(math.ceil(pressure_eta)), int(pressure_stack)
-
-
-def build_rescue_missions(world, policy, planned_commitments, modes, debug_count=None):
+def build_rescue_missions(world, policy, planned_commitments, modes):
     missions = []
 
     for target in world.my_planets:
         fall_turn = world.fall_turn_map.get(target.id)
         if fall_turn is None or fall_turn > DEFENSE_LOOKAHEAD_TURNS:
             continue
-        if debug_count is not None:
-            debug_count(
-                "rescue_target",
-                [
-                    target.id,
-                    int(fall_turn),
-                    int(target.production),
-                    int(target.ships),
-                    int(world.keep_needed_map.get(target.id, 0)),
-                ],
-            )
 
         for src in world.my_planets:
             if src.id == target.id:
                 continue
 
-            src_available = high_prod_rescue_source_available(
-                src,
-                target,
-                fall_turn,
-                world,
-                policy,
-                debug_count=debug_count,
-            )
+            src_available = policy["attack_budget"].get(src.id, 0)
             if src_available < PARTIAL_SOURCE_MIN_SHIPS:
-                if debug_count is not None:
-                    debug_count(
-                        "rescue_low_budget",
-                        [src.id, target.id, int(src_available), int(fall_turn)],
-                    )
                 continue
 
             seeded = world.best_probe_aim(
@@ -6816,11 +5606,6 @@ def build_rescue_missions(world, policy, planned_commitments, modes, debug_count
                 max_turn=fall_turn,
             )
             if seeded is None:
-                if debug_count is not None:
-                    debug_count(
-                        "rescue_no_probe",
-                        [src.id, target.id, int(src_available), int(fall_turn)],
-                    )
                 continue
             probe, probe_aim = seeded
             plan = settle_plan(
@@ -6837,18 +5622,6 @@ def build_rescue_missions(world, policy, planned_commitments, modes, debug_count
                 anchor_turn=fall_turn,
             )
             if plan is None:
-                if debug_count is not None:
-                    debug_count(
-                        "rescue_settle_none",
-                        [
-                            src.id,
-                            target.id,
-                            int(src_available),
-                            int(probe),
-                            int(probe_aim[1]),
-                            int(fall_turn),
-                        ],
-                    )
                 continue
 
             angle, turns, _, need, send_pref = plan
@@ -6865,19 +5638,6 @@ def build_rescue_missions(world, policy, planned_commitments, modes, debug_count
                 score *= CORE_DEFENSE_SCORE_MULT
                 if fall_turn <= CORE_VISIBLE_THREAT_TURN:
                     score *= CORE_URGENT_DEFENSE_SCORE_MULT
-            score *= prod_swing_score_multiplier(target, fall_turn, world)
-            if (
-                prod_pressure_active(world, modes)
-                and high_prod_hostile_available(world)
-                and int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD
-                and not is_defense_core_planet(target, world)
-            ):
-                score *= PROD_PRESSURE_LOW_DEFENSE_MULT
-                if debug_count is not None:
-                    debug_count(
-                        "prod_pressure_low_rescue",
-                        [src.id, target.id, int(target.production), int(fall_turn)],
-                    )
 
             option = ShotOption(
                 score=score,
@@ -6899,60 +5659,24 @@ def build_rescue_missions(world, policy, planned_commitments, modes, debug_count
                     options=[option],
                 )
             )
-            if debug_count is not None:
-                debug_count(
-                    "rescue_mission_built",
-                    [
-                        src.id,
-                        target.id,
-                        int(src_available),
-                        int(turns),
-                        int(need),
-                        int(send_pref),
-                        int(fall_turn),
-                    ],
-                )
 
     return missions
 
 
-def build_recapture_missions(world, policy, planned_commitments, modes, debug_count=None):
+def build_recapture_missions(world, policy, planned_commitments, modes):
     missions = []
 
     for target in world.my_planets:
         fall_turn = world.fall_turn_map.get(target.id)
         if fall_turn is None or fall_turn > DEFENSE_LOOKAHEAD_TURNS:
             continue
-        if debug_count is not None:
-            debug_count(
-                "recapture_target",
-                [
-                    target.id,
-                    int(fall_turn),
-                    int(target.production),
-                    int(target.ships),
-                    int(world.keep_needed_map.get(target.id, 0)),
-                ],
-            )
 
         for src in world.my_planets:
             if src.id == target.id:
                 continue
 
-            src_available = high_prod_rescue_source_available(
-                src,
-                target,
-                fall_turn,
-                world,
-                policy,
-                debug_count=debug_count,
-            )
+            src_available = policy["attack_budget"].get(src.id, 0)
             if src_available < PARTIAL_SOURCE_MIN_SHIPS:
-                if debug_count is not None:
-                    debug_count(
-                        "recapture_low_budget",
-                        [src.id, target.id, int(src_available), int(fall_turn)],
-                    )
                 continue
 
             seeded = world.best_probe_aim(
@@ -6964,17 +5688,6 @@ def build_recapture_missions(world, policy, planned_commitments, modes, debug_co
                 max_turn=fall_turn + RECAPTURE_LOOKAHEAD_TURNS,
             )
             if seeded is None:
-                if debug_count is not None:
-                    debug_count(
-                        "recapture_no_probe",
-                        [
-                            src.id,
-                            target.id,
-                            int(src_available),
-                            int(fall_turn + 1),
-                            int(fall_turn + RECAPTURE_LOOKAHEAD_TURNS),
-                        ],
-                    )
                 continue
             probe, probe_aim = seeded
             probe_turns = probe_aim[1]
@@ -6991,27 +5704,10 @@ def build_recapture_missions(world, policy, planned_commitments, modes, debug_co
                 mission="capture",
             )
             if plan is None:
-                if debug_count is not None:
-                    debug_count(
-                        "recapture_settle_none",
-                        [
-                            src.id,
-                            target.id,
-                            int(src_available),
-                            int(probe),
-                            int(probe_turns),
-                            int(fall_turn),
-                        ],
-                    )
                 continue
 
             angle, turns, _, need, send_pref = plan
             if turns <= fall_turn or turns - fall_turn > RECAPTURE_LOOKAHEAD_TURNS:
-                if debug_count is not None:
-                    debug_count(
-                        "recapture_bad_turn",
-                        [src.id, target.id, int(turns), int(fall_turn)],
-                    )
                 continue
 
             saved_turns = max(1, world.remaining_steps - turns)
@@ -7031,19 +5727,6 @@ def build_recapture_missions(world, policy, planned_commitments, modes, debug_co
                 score *= CORE_DEFENSE_SCORE_MULT
                 if fall_turn <= CORE_VISIBLE_THREAT_TURN:
                     score *= CORE_URGENT_DEFENSE_SCORE_MULT
-            score *= prod_swing_score_multiplier(target, fall_turn, world)
-            if (
-                prod_pressure_active(world, modes)
-                and high_prod_hostile_available(world)
-                and int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD
-                and not is_defense_core_planet(target, world)
-            ):
-                score *= PROD_PRESSURE_LOW_DEFENSE_MULT
-                if debug_count is not None:
-                    debug_count(
-                        "prod_pressure_low_recapture",
-                        [src.id, target.id, int(target.production), int(fall_turn)],
-                    )
 
             option = ShotOption(
                 score=score,
@@ -7065,31 +5748,11 @@ def build_recapture_missions(world, policy, planned_commitments, modes, debug_co
                     options=[option],
                 )
             )
-            if debug_count is not None:
-                debug_count(
-                    "recapture_mission_built",
-                    [
-                        src.id,
-                        target.id,
-                        int(src_available),
-                        int(turns),
-                        int(need),
-                        int(send_pref),
-                        int(fall_turn),
-                    ],
-                )
 
     return missions
 
 
-def build_reinforce_missions(
-    world,
-    policy,
-    planned_commitments,
-    modes,
-    inventory_left_fn,
-    debug_count=None,
-):
+def build_reinforce_missions(world, policy, planned_commitments, modes, inventory_left_fn):
     if not REINFORCE_ENABLED:
         return []
 
@@ -7151,7 +5814,6 @@ def build_reinforce_missions(
                 score *= CORE_DEFENSE_SCORE_MULT
                 if fall_turn <= CORE_VISIBLE_THREAT_TURN:
                     score *= CORE_URGENT_DEFENSE_SCORE_MULT
-            score *= prod_swing_score_multiplier(target, fall_turn, world)
 
             option = ShotOption(
                 score=score,
@@ -7173,237 +5835,6 @@ def build_reinforce_missions(
                     options=[option],
                 )
             )
-
-    if PROACTIVE_SWING_REINFORCE_ENABLED and world.is_four_player:
-        proactive_targets = []
-        for target in world.my_planets:
-            if int(target.production) < PROACTIVE_SWING_REINFORCE_MIN_PROD:
-                continue
-            detail = enemy_source_pressure_detail_to_planet(
-                target,
-                world,
-                PROACTIVE_SWING_REINFORCE_HORIZON,
-            )
-            if detail is None:
-                continue
-            eta, stack, owner, source_id = detail
-            threat_turn = max(1, int(math.ceil(eta)))
-            modeled_threat_turn = min(
-                PROACTIVE_SWING_REINFORCE_MAX_TRAVEL_TURNS,
-                threat_turn + PROACTIVE_SWING_REINFORCE_ARRIVAL_SLACK,
-            )
-            fall_turn = world.fall_turn_map.get(target.id)
-            if fall_turn is not None and fall_turn <= threat_turn:
-                continue
-
-            target_swing = prod_gap_swing_for_loss(target, owner, world)
-            if target_swing < SWING_RESCUE_RELIEF_MIN_SWING:
-                continue
-            future_garrison = int(target.ships) + int(target.production) * modeled_threat_turn
-            if int(stack) <= future_garrison:
-                continue
-
-            margin = min(
-                PROACTIVE_SWING_REINFORCE_MAX_ATTACK_MARGIN,
-                PROACTIVE_SWING_REINFORCE_ATTACK_MARGIN_BASE
-                + int(target.production) * PROACTIVE_SWING_REINFORCE_ATTACK_MARGIN_PROD_WEIGHT,
-            )
-            predicted_attack = min(int(stack), future_garrison + int(margin))
-            if predicted_attack <= future_garrison:
-                continue
-            pressure_score = (
-                (predicted_attack - future_garrison)
-                * target_swing
-                / max(1.0, float(threat_turn))
-            )
-            proactive_targets.append(
-                (
-                    -pressure_score,
-                    threat_turn,
-                    modeled_threat_turn,
-                    -target_swing,
-                    target.id,
-                    target,
-                    int(stack),
-                    int(owner),
-                    int(source_id),
-                    int(predicted_attack),
-                    int(target_swing),
-                )
-            )
-
-        proactive_targets.sort()
-        for (
-            _,
-            threat_turn,
-            modeled_threat_turn,
-            _neg_swing,
-            _target_id,
-            target,
-            stack,
-            owner,
-            source_id,
-            predicted_attack,
-            target_swing,
-        ) in proactive_targets[:PROACTIVE_SWING_REINFORCE_MAX_TARGETS]:
-            hold_until = min(HORIZON, modeled_threat_turn + PROACTIVE_SWING_REINFORCE_HOLD_TURNS)
-            max_arrival_turn = min(modeled_threat_turn, PROACTIVE_SWING_REINFORCE_MAX_TRAVEL_TURNS)
-            extra_arrivals = ((modeled_threat_turn, owner, int(predicted_attack)),)
-            if debug_count is not None:
-                debug_count(
-                    "proactive_reinforce_target",
-                    [
-                        int(target.id),
-                        int(target.production),
-                        int(target.ships),
-                        int(threat_turn),
-                        int(modeled_threat_turn),
-                        int(stack),
-                        int(predicted_attack),
-                        int(owner),
-                        int(source_id),
-                        int(target_swing),
-                    ],
-                )
-
-            for src in nearest_sources_to_target(target, world.my_planets, MULTI_SOURCE_TOP_K):
-                if src.id == target.id:
-                    continue
-                budget = inventory_left_fn(src.id)
-                source_cap = int(budget)
-                src_fall_turn = world.fall_turn_map.get(src.id)
-                source_swing = 0
-                if (
-                    src_fall_turn is not None
-                    and src_fall_turn
-                    <= modeled_threat_turn + SWING_RESCUE_RELIEF_SOURCE_FALL_BUFFER
-                ):
-                    source_owner_after, _ = world.projected_state(src.id, src_fall_turn)
-                    source_swing = prod_gap_swing_for_loss(src, source_owner_after, world)
-                if source_swing < target_swing:
-                    relaxed_keep = max(
-                        int(world.keep_needed_map.get(src.id, 0)),
-                        SWING_RESCUE_RELIEF_KEEP_BASE
-                        + int(src.production) * SWING_RESCUE_RELIEF_KEEP_PROD_WEIGHT,
-                        int(int(src.ships) * SWING_RESCUE_RELIEF_KEEP_FRACTION),
-                    )
-                    relaxed_cap = min(
-                        max(0, int(src.ships) - int(relaxed_keep)),
-                        int(src.ships * PROACTIVE_SWING_REINFORCE_MAX_SOURCE_FRACTION),
-                    )
-                    if relaxed_cap > source_cap:
-                        if debug_count is not None:
-                            debug_count(
-                                "proactive_reinforce_budget_relief",
-                                [
-                                    src.id,
-                                    target.id,
-                                    int(src.production),
-                                    int(src.ships),
-                                    int(source_cap),
-                                    int(relaxed_cap),
-                                    int(source_swing),
-                                    int(target_swing),
-                                ],
-                            )
-                        source_cap = relaxed_cap
-                source_cap = min(
-                    int(source_cap),
-                    int(src.ships * PROACTIVE_SWING_REINFORCE_MAX_SOURCE_FRACTION),
-                )
-                if source_cap < PARTIAL_SOURCE_MIN_SHIPS:
-                    if debug_count is not None:
-                        debug_count(
-                            "proactive_reinforce_low_budget",
-                            [src.id, target.id, int(source_cap), int(threat_turn)],
-                        )
-                    continue
-
-                seeded = world.best_probe_aim(
-                    src.id,
-                    target.id,
-                    source_cap,
-                    hints=(target.production + REINFORCE_SAFETY_MARGIN + 2,),
-                    max_turn=max_arrival_turn,
-                )
-                if seeded is None:
-                    if debug_count is not None:
-                        debug_count(
-                            "proactive_reinforce_no_probe",
-                            [src.id, target.id, int(source_cap), int(max_arrival_turn)],
-                        )
-                    continue
-                probe, probe_aim = seeded
-
-                plan = settle_reinforce_plan(
-                    src,
-                    target,
-                    source_cap,
-                    probe,
-                    world,
-                    planned_commitments,
-                    hold_until,
-                    max_arrival_turn,
-                    extra_arrivals=extra_arrivals,
-                )
-                if plan is None:
-                    if debug_count is not None:
-                        debug_count(
-                            "proactive_reinforce_settle_none",
-                            [
-                                src.id,
-                                target.id,
-                                int(source_cap),
-                                int(probe),
-                                int(probe_aim[1]),
-                                int(threat_turn),
-                            ],
-                        )
-                    continue
-
-                angle, turns, _, need, send_pref = plan
-                value = reinforce_value(target, hold_until, world, policy)
-                score = value / (send_pref + turns * REINFORCE_COST_TURN_WEIGHT + 1.0)
-                if is_defense_core_planet(target, world):
-                    score *= CORE_DEFENSE_SCORE_MULT
-                score *= prod_swing_score_multiplier(target, threat_turn, world)
-                score *= PROACTIVE_SWING_REINFORCE_SCORE_MULT
-
-                option = ShotOption(
-                    score=score,
-                    src_id=src.id,
-                    target_id=target.id,
-                    angle=angle,
-                    turns=turns,
-                    needed=need,
-                    send_cap=send_pref,
-                    mission="proactive_reinforce",
-                    anchor_turn=hold_until,
-                    extra_arrivals=extra_arrivals,
-                )
-                missions.append(
-                    Mission(
-                        kind="reinforce",
-                        score=score,
-                        target_id=target.id,
-                        turns=max_arrival_turn,
-                        options=[option],
-                    )
-                )
-                if debug_count is not None:
-                    debug_count(
-                        "proactive_reinforce_mission_built",
-                        [
-                            src.id,
-                            target.id,
-                            int(source_cap),
-                            int(turns),
-                            int(need),
-                            int(send_pref),
-                            int(threat_turn),
-                            int(predicted_attack),
-                        ],
-                    )
 
     return missions
 
@@ -7737,41 +6168,10 @@ def build_turtle_breakout_moves(world, policy):
     return None
 
 
-def build_timeout_fallback_moves(world, debug_count=None, debug_set=None):
-    trace = []
-
-    def record(reason, source=None, target=None, detail=None):
-        if debug_count is not None:
-            sample = []
-            if source is not None:
-                sample.append(int(source.id))
-            if target is not None:
-                sample.extend([int(target.id), int(target.owner), int(target.production), int(target.ships)])
-            if detail is not None:
-                sample.append(detail)
-            debug_count("timeout_" + reason, sample)
-        if len(trace) >= ORBIT_LOG_SAMPLE_LIMIT:
-            return
-        row = [reason]
-        if source is not None:
-            row.extend([int(source.id), int(source.production), int(source.ships)])
-        else:
-            row.extend([None, None, None])
-        if target is not None:
-            row.extend([int(target.id), int(target.owner), int(target.production), int(target.ships)])
-        else:
-            row.extend([None, None, None, None])
-        if detail is not None:
-            row.append(detail)
-        trace.append(row)
-
+def build_timeout_fallback_moves(world):
     if world.step < TIMEOUT_FALLBACK_START_STEP or world.is_very_late:
-        if debug_set is not None:
-            debug_set("timeout_trace", trace)
         return []
 
-    prod_pressure = prod_pressure_active(world)
-    hostile_core_available = high_prod_hostile_available(world)
     targets = list(world.enemy_planets)
     targets.extend(
         planet
@@ -7780,8 +6180,6 @@ def build_timeout_fallback_moves(world, debug_count=None, debug_set=None):
         and planet.id not in world.comet_ids
     )
     if not targets:
-        if debug_set is not None:
-            debug_set("timeout_trace", trace)
         return []
 
     def source_left(source):
@@ -7811,7 +6209,6 @@ def build_timeout_fallback_moves(world, debug_count=None, debug_set=None):
             break
         left = max(0, source_left(source) - used[source.id])
         if left < TIMEOUT_FALLBACK_MIN_SOURCE:
-            record("source_small", source, detail=[int(left)])
             continue
 
         ranked_targets = []
@@ -7819,28 +6216,11 @@ def build_timeout_fallback_moves(world, debug_count=None, debug_set=None):
             if target.id == source.id or target.owner == world.player:
                 continue
             if target.owner == -1 and int(target.ships) + 1 > left:
-                record("neutral_too_big", source, target, [int(left)])
                 continue
             distance = planet_distance(source, target)
             value = float(target.production) * 10.0
             if target.owner not in (-1, world.player):
                 value += 12.0
-                if prod_pressure and int(target.production) >= CORE_PRODUCTION:
-                    value *= PROD_PRESSURE_HOSTILE_CORE_MULT
-                elif (
-                    prod_pressure
-                    and hostile_core_available
-                    and int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD
-                ):
-                    value *= PROD_PRESSURE_LOW_HOSTILE_MULT
-            elif prod_pressure and hostile_core_available:
-                if int(target.production) <= PROD_PRESSURE_LOW_TARGET_MAX_PROD:
-                    value *= PROD_PRESSURE_LOW_NEUTRAL_MULT
-                elif int(target.ships) >= max(
-                    PROD_PRESSURE_HEAVY_NEUTRAL_MIN_SHIPS,
-                    int(target.production) * 12,
-                ):
-                    value *= PROD_PRESSURE_HEAVY_NEUTRAL_MULT
             score = value / (1.0 + distance * 0.25 + max(0, int(target.ships)) * 0.12)
             ranked_targets.append((score, target))
 
@@ -7872,27 +6252,14 @@ def build_timeout_fallback_moves(world, debug_count=None, debug_set=None):
                 )
             aim = world.plan_shot(source.id, target.id, send)
             if aim is None:
-                record("no_route", source, target, [int(send)])
                 continue
             angle, turns, _, _ = aim
             if turns > TIMEOUT_FALLBACK_MAX_TURNS:
-                record("too_slow", source, target, [int(send), int(turns)])
                 continue
-            owner_after, _ = world.projected_state(
-                target.id,
-                turns,
-                extra_arrivals=[(turns, world.player, int(send))],
-            )
-            if owner_after != world.player:
-                record("owner_fail", source, target, [int(send), int(turns), int(owner_after)])
-                continue
-            record("accept", source, target, [int(send), int(turns)])
             moves.append([source.id, float(angle), int(send)])
             used[source.id] += send
             break
 
-    if debug_set is not None:
-        debug_set("timeout_trace", trace)
     return moves
 
 
@@ -7914,15 +6281,8 @@ def plan_moves(world, deadline=None):
             if len(samples) < ORBIT_LOG_SAMPLE_LIMIT:
                 samples.append(sample)
 
-    def debug_event(key, row, limit=ORBIT_LOG_SAMPLE_LIMIT):
-        if not orbit_log_enabled(world.step):
-            return
-        rows = world.debug_info.setdefault(key, [])
-        if len(rows) < limit:
-            rows.append(row)
-
     def expired():
-        return deadline is not None and time.perf_counter() > deadline - TIMEOUT_FALLBACK_NEAR_DEADLINE
+        return deadline is not None and time.perf_counter() > deadline
 
     def time_left():
         if deadline is None:
@@ -7935,76 +6295,51 @@ def plan_moves(world, deadline=None):
     def allow_optional_phase():
         return time_left() > OPTIONAL_PHASE_MIN_TIME
 
-    def four_player_opening_wait_relaxed(stage):
-        if (
-            not world.is_four_player
-            or not world.is_opening
-            or world.step < FOUR_PLAYER_OPENING_WAIT_RELIEF_STEP
-        ):
-            return False
-        if world.my_prod > world.leading_enemy_prod + FOUR_PLAYER_OPENING_WAIT_RELIEF_PROD_CUSHION:
-            return False
-        debug_count(
-            "opening_wait_relaxed",
-            [
-                stage,
-                int(world.my_prod),
-                int(world.leading_enemy_prod),
-                int(world.my_total),
-                int(world.max_enemy_strength),
-            ],
-        )
-        return True
-
-    def return_opening_stage(stage, stage_moves):
-        if stage_moves is None:
-            return None
-        if stage_moves or not four_player_opening_wait_relaxed(stage):
-            debug_set("stage", stage)
-            debug_set("opening_return", len(stage_moves))
-            return stage_moves
-        return None
-
     opening_meta_moves = build_opening_meta_moves(world, debug_set=debug_set)
-    stage_result = return_opening_stage("opening_meta", opening_meta_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_meta_moves is not None:
+        debug_set("stage", "opening_meta")
+        debug_set("opening_return", len(opening_meta_moves))
+        return opening_meta_moves
 
     opening_direct_moves = build_opening_direct_expand_moves(world)
-    stage_result = return_opening_stage("opening_direct", opening_direct_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_direct_moves is not None:
+        debug_set("stage", "opening_direct")
+        debug_set("opening_return", len(opening_direct_moves))
+        return opening_direct_moves
     opening_fast_expand_moves = build_opening_fast_expand_moves(world)
-    stage_result = return_opening_stage("opening_fast_expand", opening_fast_expand_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_fast_expand_moves is not None:
+        debug_set("stage", "opening_fast_expand")
+        debug_set("opening_return", len(opening_fast_expand_moves))
+        return opening_fast_expand_moves
     opening_anchor_moves = build_opening_anchor_moves(world)
-    stage_result = return_opening_stage("opening_anchor", opening_anchor_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_anchor_moves is not None:
+        debug_set("stage", "opening_anchor")
+        debug_set("opening_return", len(opening_anchor_moves))
+        return opening_anchor_moves
     opening_priority_moves = build_opening_priority_moves(world)
-    stage_result = return_opening_stage("opening_priority", opening_priority_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_priority_moves is not None:
+        debug_set("stage", "opening_priority")
+        debug_set("opening_return", len(opening_priority_moves))
+        return opening_priority_moves
     opening_local_quality_moves = build_opening_local_quality_moves(world)
-    stage_result = return_opening_stage("opening_local_quality", opening_local_quality_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_local_quality_moves is not None:
+        debug_set("stage", "opening_local_quality")
+        debug_set("opening_return", len(opening_local_quality_moves))
+        return opening_local_quality_moves
     opening_mainline_moves = build_opening_mainline_moves(world)
-    stage_result = return_opening_stage("opening_mainline", opening_mainline_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_mainline_moves is not None:
+        debug_set("stage", "opening_mainline")
+        debug_set("opening_return", len(opening_mainline_moves))
+        return opening_mainline_moves
     opening_heavy_prize_moves = build_opening_heavy_prize_moves(world)
-    stage_result = return_opening_stage("opening_heavy_prize", opening_heavy_prize_moves)
-    if stage_result is not None:
-        return stage_result
+    if opening_heavy_prize_moves is not None:
+        debug_set("stage", "opening_heavy_prize")
+        debug_set("opening_return", len(opening_heavy_prize_moves))
+        return opening_heavy_prize_moves
 
     modes = build_modes(world)
     policy = build_policy_state(world, deadline=deadline)
     debug_set("stage", "policy")
-    swing_metrics = prod_swing_metrics(world, policy=policy)
-    policy["prod_swing_metrics"] = swing_metrics
-    debug_set("prod_swing", swing_metrics)
     debug_set(
         "budget",
         [
@@ -8026,10 +6361,6 @@ def plan_moves(world, deadline=None):
             )[:ORBIT_LOG_SAMPLE_LIMIT]
         ],
     )
-    if policy.get("fallback_budget"):
-        debug_set("policy_fallback_budget", policy["fallback_budget"][:ORBIT_LOG_SAMPLE_LIMIT])
-    if policy.get("opening_prize_reserve"):
-        debug_set("opening_prize_reserve", policy["opening_prize_reserve"].get("rows", []))
     policy["predicted_enemy_arrivals"] = (
         predict_enemy_arrivals(world, deadline=deadline)
         if allow_heavy_phase()
@@ -8069,7 +6400,14 @@ def plan_moves(world, deadline=None):
         return source_attack_left(source_id)
 
     def source_can_be_emptied(src):
-        return source_can_be_emptied_for_policy(src, world)
+        if src.id in world.comet_ids and world.comet_life(src.id) <= COMET_EVAC_LIFE_TURNS:
+            return True
+        fall_turn = world.fall_turn_map.get(src.id)
+        return (
+            fall_turn is not None
+            and fall_turn <= DOOMED_EVAC_TURN_LIMIT
+            and (src.production >= CORE_PRODUCTION or is_defense_core_planet(src, world))
+        )
 
     def core_source_post_send_keep(src):
         if not is_defense_core_planet(src, world) or source_can_be_emptied(src):
@@ -8148,30 +6486,6 @@ def plan_moves(world, deadline=None):
                     return 0
         if inferred_target_id is not None and not force:
             target = world.planet_by_id.get(inferred_target_id)
-            source = world.planet_by_id.get(src_id)
-            if target is not None and source is not None and target.owner == world.player:
-                fall_turn = world.fall_turn_map.get(src_id)
-                if (
-                    fall_turn is not None
-                    and fall_turn <= THREATENED_PRODUCTIVE_RETREAT_FALL_TURNS
-                    and int(source.production) >= CORE_PRODUCTION
-                    and int(target.production) + 1 < int(source.production)
-                    and int(ships) >= int(max(1, source.ships) * THREATENED_PRODUCTIVE_RETREAT_MIN_SEND_FRACTION)
-                ):
-                    debug_count(
-                        "threatened_prod_retreat_block",
-                        [
-                            src_id,
-                            int(source.production),
-                            int(source.ships),
-                            int(fall_turn),
-                            target.id,
-                            int(target.production),
-                            int(target.ships),
-                            int(ships),
-                        ],
-                    )
-                    return 0
             if (
                 target is not None
                 and world.is_opening
@@ -8186,44 +6500,13 @@ def plan_moves(world, deadline=None):
                     )
                 )
             ):
-                debug_count(
-                    "append_opening_lowprod_block",
-                    [src_id, target.id, int(target.production), int(target.ships), int(ships)],
-                )
                 return 0
             if target is not None and poor_opening_target(target, world):
-                debug_count(
-                    "append_poor_opening_target",
-                    [src_id, target.id, int(target.production), int(target.ships), int(ships)],
-                )
                 return 0
         send_cap = source_inventory_left(src_id)
         if target_id is not None and not force:
             target = world.planet_by_id.get(target_id)
             source = world.planet_by_id.get(src_id)
-            if target is not None and source is not None and target.owner == world.player:
-                fall_turn = world.fall_turn_map.get(src_id)
-                if (
-                    fall_turn is not None
-                    and fall_turn <= THREATENED_PRODUCTIVE_RETREAT_FALL_TURNS
-                    and int(source.production) >= CORE_PRODUCTION
-                    and int(target.production) + 1 < int(source.production)
-                    and int(ships) >= int(max(1, source.ships) * THREATENED_PRODUCTIVE_RETREAT_MIN_SEND_FRACTION)
-                ):
-                    debug_count(
-                        "threatened_prod_retreat_block",
-                        [
-                            src_id,
-                            int(source.production),
-                            int(source.ships),
-                            int(fall_turn),
-                            target.id,
-                            int(target.production),
-                            int(target.ships),
-                            int(ships),
-                        ],
-                    )
-                    return 0
             if (
                 target is not None
                 and source is not None
@@ -8235,7 +6518,6 @@ def plan_moves(world, deadline=None):
                 send_cap = min(send_cap, source_attack_left(src_id))
         send = min(int(ships), send_cap)
         if send < 1:
-            debug_count("append_zero", [src_id, target_id, int(ships), int(send_cap)])
             return 0
         moves.append([src_id, float(angle), int(send)])
         spent_total[src_id] += send
@@ -8246,7 +6528,7 @@ def plan_moves(world, deadline=None):
             return []
         if world.step < TIMEOUT_FALLBACK_START_STEP or world.is_very_late:
             return []
-        fallback = build_timeout_fallback_moves(world, debug_count=debug_count, debug_set=debug_set)
+        fallback = build_timeout_fallback_moves(world)
         debug_set("timeout_fallback", len(fallback))
         return fallback
 
@@ -8441,76 +6723,6 @@ def plan_moves(world, deadline=None):
                     if send < need:
                         debug_count("boxed_send_short", [src.id, target.id, int(send), int(need)])
                         continue
-                source_swing_score_mult = 1.0
-                if (
-                    fall_turn is not None
-                    and fall_turn <= BOXED_BREAKOUT_SOURCE_SWING_GUARD_TURNS
-                    and int(src.production) >= CORE_PRODUCTION
-                    and int(send) >= int(max(1, src.ships) * BOXED_BREAKOUT_SOURCE_SWING_GUARD_MIN_SEND_FRACTION)
-                    and src.id not in world.comet_ids
-                ):
-                    source_owner_after, _ = world.projected_state(src.id, fall_turn)
-                    source_swing = prod_gap_swing_for_loss(src, source_owner_after, world)
-                    target_swing = prod_gap_swing_for_capture(target, world)
-                    counter_swing_turn_limit = min(
-                        BOXED_BREAKOUT_SOURCE_SWING_GUARD_COUNTER_MAX_TURNS,
-                        fall_turn + BOXED_BREAKOUT_SOURCE_SWING_GUARD_ETA_SLACK,
-                    )
-                    counter_swing_arrives_in_time = (
-                        target_swing >= source_swing
-                        and turns <= counter_swing_turn_limit
-                    )
-                    urgent_source = fall_turn <= BOXED_BREAKOUT_SOURCE_SWING_GUARD_URGENT_TURNS
-                    if source_swing > 0:
-                        if (
-                            urgent_source
-                            and not counter_swing_arrives_in_time
-                            and target_swing <= source_swing + int(target.production)
-                        ):
-                            debug_count(
-                                "boxed_source_swing_reject",
-                                [
-                                    src.id,
-                                    int(src.production),
-                                    int(src.ships),
-                                    int(fall_turn),
-                                    int(source_swing),
-                                    target.id,
-                                    int(target.owner),
-                                    int(target.production),
-                                    int(target_swing),
-                                    int(math.ceil(turns)),
-                                    int(send),
-                                    int(cap),
-                                ],
-                            )
-                            continue
-                        if counter_swing_arrives_in_time:
-                            source_swing_score_mult = 1.08 if urgent_source else 1.0
-                        elif target_swing >= source_swing:
-                            source_swing_score_mult = 0.48
-                        elif target_swing + int(target.production) >= source_swing:
-                            source_swing_score_mult = 0.30
-                        else:
-                            source_swing_score_mult = 0.16
-                        debug_count(
-                            "boxed_source_swing_guard",
-                            [
-                                src.id,
-                                int(src.production),
-                                int(src.ships),
-                                int(fall_turn),
-                                int(source_swing),
-                                target.id,
-                                int(target.owner),
-                                int(target.production),
-                                int(target_swing),
-                                int(math.ceil(turns)),
-                                int(send),
-                                int(cap),
-                                round(float(source_swing_score_mult), 3),
-                            ],
-                        )
                 if not midgame_attack_allowed(src, target, send, turns, world, modes):
                     debug_count("boxed_midgame_block", [src.id, target.id, int(send), int(turns)])
                     continue
@@ -8531,7 +6743,6 @@ def plan_moves(world, deadline=None):
                     "capture",
                     world,
                 )
-                score *= source_swing_score_mult
                 candidate = (score, target, angle, turns, need, send, near_miss)
                 if best is None or candidate[0] > best[0]:
                     best = candidate
@@ -8738,449 +6949,6 @@ def plan_moves(world, deadline=None):
         )
         return 1
 
-    def clear_opening_soften_commitment(target_id, reason, target=None):
-        commitment = OPENING_SOFTEN_COMMITMENTS.pop(int(target_id), None)
-        if commitment is not None:
-            debug_count(
-                f"opening_soften_followup_{reason}",
-                [
-                    int(target_id),
-                    None if target is None else int(target.owner),
-                    None if target is None else int(target.production),
-                    None if target is None else int(target.ships),
-                    int(commitment.get("hit_step", -1)),
-                    int(commitment.get("expire_step", -1)),
-                ],
-            )
-
-    def build_opening_soften_followup():
-        if (
-            not OPENING_SOFTEN_FOLLOWUP_ENABLED
-            or not world.is_four_player
-            or not world.is_opening
-            or not OPENING_SOFTEN_COMMITMENTS
-        ):
-            return 0
-
-        best = None
-        for target_id, commitment in list(OPENING_SOFTEN_COMMITMENTS.items()):
-            target = world.planet_by_id.get(int(target_id))
-            if target is None or target.id in world.comet_ids:
-                clear_opening_soften_commitment(target_id, "expired", target)
-                continue
-            if int(world.step) > int(commitment.get("expire_step", world.step)):
-                clear_opening_soften_commitment(target_id, "expired", target)
-                continue
-            if target.owner == world.player:
-                clear_opening_soften_commitment(target_id, "done", target)
-                continue
-            if int(target.production) < OPENING_SOFTEN_FOLLOWUP_MIN_PROD:
-                clear_opening_soften_commitment(target_id, "expired", target)
-                continue
-            if target.owner != -1:
-                clear_opening_soften_commitment(target_id, "stolen", target)
-                continue
-
-            incoming = my_incoming_ships_to(target, world)
-            min_arrival_turn = max(1, int(commitment.get("hit_step", world.step)) - int(world.step))
-            if incoming >= int(target.ships) + 1:
-                debug_count(
-                    "opening_soften_followup_inflight",
-                    [
-                        int(target.id),
-                        int(target.production),
-                        int(target.ships),
-                        int(incoming),
-                        int(min_arrival_turn),
-                    ],
-                )
-                continue
-
-            for src in nearest_sources_to_target(target, world.my_planets, OPENING_HEAVY_PRIZE_MAX_SOURCES):
-                fall_turn = world.fall_turn_map.get(src.id)
-                if fall_turn is not None and fall_turn <= SOURCE_LOCK_FALL_TURNS:
-                    continue
-                keep = OPENING_SOFTEN_FOLLOWUP_SOURCE_KEEP
-                if src.id == commitment.get("source_id"):
-                    keep = min(keep, FOUR_PLAYER_OPENING_SOFTEN_SOURCE_KEEP)
-                source_cap = max(0, source_inventory_left(src.id) - keep)
-                if source_cap <= 0:
-                    continue
-                seeded = world.best_probe_aim(
-                    src.id,
-                    target.id,
-                    source_cap,
-                    hints=(
-                        max(1, int(target.ships) + OPENING_SOFTEN_FOLLOWUP_MARGIN - int(incoming)),
-                        int(target.ships) + 1,
-                    ),
-                    min_turn=min_arrival_turn,
-                    max_turn=OPENING_SOFTEN_FOLLOWUP_MAX_TURNS,
-                )
-                if seeded is None:
-                    debug_count(
-                        "opening_soften_followup_no_probe",
-                        [src.id, target.id, int(source_cap), int(min_arrival_turn)],
-                    )
-                    continue
-                probe, aim = seeded
-                _, rough_turns, _, _ = aim
-                need = world.min_ships_to_own_at(
-                    target.id,
-                    rough_turns,
-                    world.player,
-                    upper_bound=source_cap,
-                )
-                desired = max(
-                    int(need),
-                    max(1, int(target.ships) + OPENING_SOFTEN_FOLLOWUP_MARGIN - int(incoming)),
-                )
-                if need <= 0 or desired > source_cap:
-                    debug_count(
-                        "opening_soften_followup_need_fail",
-                        [
-                            src.id,
-                            target.id,
-                            int(source_cap),
-                            int(rough_turns),
-                            int(need),
-                            int(desired),
-                        ],
-                    )
-                    continue
-                aim = world.plan_shot(src.id, target.id, desired)
-                if aim is None:
-                    debug_count(
-                        "opening_soften_followup_no_route",
-                        [src.id, target.id, int(desired)],
-                    )
-                    continue
-                angle, turns, _, _ = aim
-                if turns < min_arrival_turn or turns > OPENING_SOFTEN_FOLLOWUP_MAX_TURNS:
-                    debug_count(
-                        "opening_soften_followup_bad_turn",
-                        [src.id, target.id, int(desired), int(turns), int(min_arrival_turn)],
-                    )
-                    continue
-                owner_after, ships_after = world.projected_state(
-                    target.id,
-                    turns,
-                    extra_arrivals=[(turns, world.player, int(desired))],
-                )
-                if owner_after != world.player:
-                    debug_count(
-                        "opening_soften_followup_owner_fail",
-                        [
-                            src.id,
-                            target.id,
-                            int(desired),
-                            int(turns),
-                            int(owner_after),
-                            int(ships_after),
-                        ],
-                    )
-                    continue
-                score = (
-                    float(target.production) ** 1.6
-                    / max(1.0, desired * 0.7 + turns * 0.45)
-                )
-                candidate = (
-                    -score,
-                    turns,
-                    desired,
-                    src.id,
-                    target.id,
-                    src,
-                    target,
-                    angle,
-                    int(ships_after),
-                    commitment,
-                )
-                if best is None or candidate < best:
-                    best = candidate
-
-            if best is None:
-                debug_count(
-                    "opening_soften_followup_wait",
-                    [
-                        int(world.step),
-                        len(OPENING_SOFTEN_COMMITMENTS),
-                    ],
-                )
-
-        if best is None:
-            return 0
-
-        _, turns, desired, _src_id, _target_id, src, target, angle, ships_after, commitment = best
-        actual = append_move(src.id, angle, desired, target.id)
-        if actual <= 0:
-            debug_count("opening_soften_followup_append_zero", [src.id, target.id, int(desired)])
-            return 0
-        debug_count(
-            "opening_soften_followup_accept",
-            [
-                src.id,
-                target.id,
-                int(target.production),
-                int(target.ships),
-                int(actual),
-                int(turns),
-                int(commitment.get("hit_step", -1)),
-                int(ships_after),
-            ],
-        )
-        clear_opening_soften_commitment(target.id, "done", target)
-        return 1
-
-    def build_opening_soften_fallback():
-        if (
-            not FOUR_PLAYER_OPENING_SOFTEN_ENABLED
-            or not world.is_four_player
-            or not world.is_opening
-            or world.step > FOUR_PLAYER_OPENING_SOFTEN_TURN_LIMIT
-            or not world.neutral_planets
-        ):
-            return 0
-
-        counts = world.debug_info.get("counts", {})
-        pressure_seen = (
-            counts.get("partial_option", 0) > 0
-            or counts.get("opening_filter", 0) > 0
-            or counts.get("route_guard_reject", 0) > 0
-            or counts.get("opening_wait_relaxed", 0) > 0
-            or world.my_prod <= world.leading_enemy_prod + FOUR_PLAYER_OPENING_WAIT_RELIEF_PROD_CUSHION
-        )
-        if not pressure_seen:
-            return 0
-
-        def opening_capture_projection(src, target, send, turns, incoming):
-            owner_after, ships_after = world.projected_state(
-                target.id,
-                turns,
-                extra_arrivals=[(turns, world.player, int(send))],
-            )
-            if owner_after == world.player:
-                return owner_after, ships_after
-
-            debug_key = (
-                "opening_soften_mobile_partial_block"
-                if target_can_move(target, world.initial_by_id, world.comet_ids)
-                else "opening_soften_capture_fail"
-            )
-            debug_count(
-                debug_key,
-                [
-                    src.id,
-                    target.id,
-                    int(target.production),
-                    int(target.ships),
-                    int(send),
-                    int(turns),
-                    int(incoming),
-                    int(owner_after),
-                    int(math.floor(ships_after)),
-                ],
-            )
-            return owner_after, ships_after
-
-        best = None
-        for src in sorted(
-            world.my_planets,
-            key=lambda planet: (-int(planet.ships), -int(planet.production), planet.id),
-        ):
-            available = source_attack_left(src.id)
-            if available < FOUR_PLAYER_OPENING_SOFTEN_MIN_SEND:
-                continue
-            fall_turn = world.fall_turn_map.get(src.id)
-            if fall_turn is not None and fall_turn <= SOURCE_LOCK_FALL_TURNS:
-                continue
-            source_keep = FOUR_PLAYER_OPENING_SOFTEN_SOURCE_KEEP
-            if len(world.my_planets) <= 1:
-                source_keep = max(source_keep, 1)
-            send_cap = max(
-                0,
-                min(
-                    int(available),
-                    int(src.ships) - source_keep,
-                ),
-            )
-            if send_cap < FOUR_PLAYER_OPENING_SOFTEN_MIN_SEND:
-                continue
-
-            for target in world.neutral_planets:
-                if target.id in world.comet_ids:
-                    continue
-                if int(target.production) < FOUR_PLAYER_OPENING_SOFTEN_MIN_TARGET_PROD:
-                    continue
-
-                incoming = my_incoming_ships_to(target, world)
-                if incoming >= int(target.ships) + 1:
-                    continue
-
-                send = min(send_cap, max(FOUR_PLAYER_OPENING_SOFTEN_MIN_SEND, send_cap))
-                damage = min(int(send), max(0, int(target.ships) - incoming))
-                if damage <= 0:
-                    continue
-                damage_ratio = damage / max(1.0, float(target.ships))
-                my_dist = planet_distance(src, target)
-                enemy_dist = nearest_distance_to_set(target.x, target.y, world.enemy_planets)
-                low_prod_home_swing_target = (
-                    LOW_PROD_HOME_RESERVE_RELIEF_ENABLED
-                    and
-                    is_profile_home(src)
-                    and int(src.production) <= 1
-                    and int(target.production) >= CORE_PRODUCTION
-                    and int(target.ships) <= LOW_PROD_HOME_RESERVE_RELIEF_MAX_TARGET_SHIPS
-                    and my_dist <= LOW_PROD_HOME_RESERVE_RELIEF_MAX_DIST
-                )
-                high_swing_target = (
-                    (int(src.production) >= 2 or low_prod_home_swing_target)
-                    and int(target.production) >= FOUR_PLAYER_HIGH_SWING_SOFTEN_MIN_PROD
-                    and int(target.ships) <= FOUR_PLAYER_HIGH_SWING_SOFTEN_MAX_SHIPS
-                    and my_dist <= FOUR_PLAYER_HIGH_SWING_SOFTEN_MAX_DIST
-                    and enemy_dist + FOUR_PLAYER_OPENING_SOFTEN_RACE_ALLOWANCE >= my_dist
-                )
-
-                future_cap = (
-                    max(0, int(src.ships) - int(send))
-                    + int(src.production) * FOUR_PLAYER_OPENING_SOFTEN_FOLLOWUP_TURNS
-                    + incoming
-                )
-                remaining_after = max(0, int(target.ships) - incoming - int(send))
-                followup_feasible = (
-                    remaining_after + FOUR_PLAYER_OPENING_SOFTEN_FOLLOWUP_MARGIN <= future_cap
-                )
-                strategic_followup = False
-                if not followup_feasible and high_swing_target:
-                    extended_cap = future_cap + int(src.production) * FOUR_PLAYER_HIGH_SWING_SOFTEN_EXTRA_TURNS
-                    strategic_followup = remaining_after <= extended_cap
-                if not followup_feasible and not strategic_followup:
-                    debug_count(
-                        "opening_soften_no_followup",
-                        [
-                            src.id,
-                            target.id,
-                            int(target.production),
-                            int(target.ships),
-                            int(send),
-                            int(remaining_after),
-                            int(future_cap),
-                        ],
-                    )
-                    continue
-                if damage_ratio < FOUR_PLAYER_OPENING_SOFTEN_MIN_DAMAGE_RATIO:
-                    continue
-
-                aim = world.plan_shot(src.id, target.id, send)
-                if aim is None:
-                    debug_count(
-                        "opening_soften_no_route",
-                        [src.id, target.id, int(send), int(target.production), int(target.ships)],
-                    )
-                    continue
-                angle, turns, _, _ = aim
-                if turns > FOUR_PLAYER_OPENING_SOFTEN_MAX_TURNS:
-                    debug_count("opening_soften_too_slow", [src.id, target.id, int(turns)])
-                    continue
-                if not candidate_time_valid(target, turns, world, LATE_CAPTURE_BUFFER):
-                    debug_count("opening_soften_time_invalid", [src.id, target.id, int(turns)])
-                    continue
-
-                owner_after, ships_after = opening_capture_projection(
-                    src,
-                    target,
-                    send,
-                    turns,
-                    incoming,
-                )
-                if owner_after != world.player:
-                    continue
-
-                if (
-                    enemy_dist + FOUR_PLAYER_OPENING_SOFTEN_RACE_ALLOWANCE < my_dist
-                    and int(target.production) < CORE_PRODUCTION
-                ):
-                    debug_count(
-                        "opening_soften_enemy_race",
-                        [src.id, target.id, int(target.production), round(float(my_dist), 1), round(float(enemy_dist), 1)],
-                    )
-                    continue
-
-                score = (
-                    float(max(1, target.production)) ** 1.45
-                    * (1.0 + min(0.8, damage_ratio))
-                    * (1.12 if followup_feasible else 1.0)
-                )
-                remaining_weight = 0.55
-                if high_swing_target:
-                    score *= FOUR_PLAYER_HIGH_SWING_SOFTEN_SCORE_MULT
-                    if strategic_followup:
-                        score *= 0.92
-                    remaining_weight = FOUR_PLAYER_HIGH_SWING_SOFTEN_REMAINING_MULT
-                score /= max(
-                    1.0,
-                    int(send) * 0.45
-                    + int(turns) * 0.75
-                    + remaining_after * remaining_weight
-                    + max(0.0, my_dist - enemy_dist) * 0.08,
-                )
-                candidate = (
-                    score,
-                    src,
-                    target,
-                    angle,
-                    turns,
-                    send,
-                    damage_ratio,
-                    remaining_after,
-                    followup_feasible,
-                    high_swing_target,
-                    int(math.floor(ships_after)),
-                    1 if target_can_move(target, world.initial_by_id, world.comet_ids) else 0,
-                )
-                if best is None or candidate[0] > best[0]:
-                    best = candidate
-
-        if best is None:
-            return 0
-
-        (
-            _,
-            src,
-            target,
-            angle,
-            turns,
-            send,
-            damage_ratio,
-            remaining_after,
-            followup_feasible,
-            high_swing_target,
-            ships_after,
-            target_mobile,
-        ) = best
-        actual = append_move(src.id, angle, send, target.id)
-        if actual <= 0:
-            debug_count("opening_soften_append_zero", [src.id, target.id, int(send)])
-            return 0
-        debug_count(
-            "opening_soften_accept",
-            [
-                src.id,
-                target.id,
-                int(target.production),
-                int(target.ships),
-                int(actual),
-                int(turns),
-                round(float(damage_ratio), 3),
-                int(remaining_after),
-                1 if followup_feasible else 0,
-                1 if high_swing_target else 0,
-                int(ships_after),
-                int(target_mobile),
-            ],
-        )
-        return 1
-
     def evacuate_departing_comets():
         evacuated = 0
         for src in sorted(
@@ -9257,16 +7025,10 @@ def plan_moves(world, deadline=None):
     def finalize_moves():
         evacuate_departing_comets()
         forced_stage = None
-        if not moves and build_opening_soften_followup():
-            forced_stage = "opening_soften_followup"
-            debug_set("stage", forced_stage)
-        if forced_stage is None and not moves and build_opening_soften_fallback():
-            forced_stage = "opening_soften"
-            debug_set("stage", forced_stage)
-        if forced_stage is None and not moves and build_boxed_breakout():
+        if not moves and build_boxed_breakout():
             forced_stage = "boxed_breakout"
             debug_set("stage", forced_stage)
-        if forced_stage is None and not moves and build_soften_fallback():
+        if not moves and build_soften_fallback():
             forced_stage = "soften_fallback"
             debug_set("stage", forced_stage)
         final_moves = []
@@ -9283,9 +7045,6 @@ def plan_moves(world, deadline=None):
                 debug_set("stage", "final")
             debug_set("final_return", len(final_moves))
             return final_moves
-        if forced_stage == "opening_soften_followup":
-            debug_set("final_return", 0)
-            return []
         fallback = build_timeout_fallback()
         if fallback:
             debug_set("stage", "timeout_fallback")
@@ -9446,17 +7205,16 @@ def plan_moves(world, deadline=None):
 
     if allow_heavy_phase():
         missions.extend(
-                build_reinforce_missions(
-                    world,
-                    policy,
-                    planned_commitments,
-                    modes,
-                    source_attack_left,
-                    debug_count=debug_count,
-                )
+            build_reinforce_missions(
+                world,
+                policy,
+                planned_commitments,
+                modes,
+                source_attack_left,
             )
-    missions.extend(build_rescue_missions(world, policy, planned_commitments, modes, debug_count=debug_count))
-    missions.extend(build_recapture_missions(world, policy, planned_commitments, modes, debug_count=debug_count))
+        )
+    missions.extend(build_rescue_missions(world, policy, planned_commitments, modes))
+    missions.extend(build_recapture_missions(world, policy, planned_commitments, modes))
 
     # Only build candidates after solving an intercept so timing decisions come
     # from a real route.
@@ -9478,19 +7236,6 @@ def plan_moves(world, deadline=None):
             debug_count("candidate_pair")
             if reserve_source_for_local_prize(src, target, world):
                 debug_count("reserve_local_prize", [src.id, target.id, int(target.production), int(target.ships)])
-                continue
-            if opening_prize_reserve_blocks(src, target, policy):
-                reserve = policy.get("opening_prize_reserve") or {}
-                debug_count(
-                    "opening_prize_reserve_block",
-                    [
-                        src.id,
-                        target.id,
-                        int(target.production),
-                        int(reserve.get("target", -1)),
-                        int(reserve.get("prod", 0)),
-                    ],
-                )
                 continue
 
             seeded = world.best_probe_aim(
@@ -9664,14 +7409,10 @@ def plan_moves(world, deadline=None):
                 if first.src_id == second.src_id:
                     debug_count("multi_pair_same_source", [target_id, first.src_id])
                     continue
-                pair_spread = abs(first.turns - second.turns)
-                base_pair_tol = swarm_eta_tolerance((first, second), target, world, include_dynamic=False)
                 pair_tol = swarm_eta_tolerance((first, second), target, world)
-                if pair_spread > pair_tol:
-                    debug_count("multi_pair_eta_fail", [target_id, int(pair_spread), int(pair_tol)])
+                if abs(first.turns - second.turns) > pair_tol:
+                    debug_count("multi_pair_eta_fail", [target_id, int(abs(first.turns - second.turns)), int(pair_tol)])
                     continue
-                if pair_spread > base_pair_tol:
-                    debug_count("multi_pair_eta_relaxed", [target_id, int(pair_spread), int(base_pair_tol), int(pair_tol)])
 
                 joint_turn = max(first.turns, second.turns)
                 total_cap = first.send_cap + second.send_cap
@@ -9730,15 +7471,11 @@ def plan_moves(world, deadline=None):
                         if len({option.src_id for option in trio}) < 3:
                             debug_count("multi_trio_same_source", [target_id])
                             continue
-                        turns = [option.turns for option in trio]
-                        trio_spread = max(turns) - min(turns)
-                        base_trio_tol = swarm_eta_tolerance(tuple(trio), target, world, include_dynamic=False)
                         trio_tol = swarm_eta_tolerance(tuple(trio), target, world)
-                        if trio_spread > trio_tol:
-                            debug_count("multi_trio_eta_fail", [target_id, int(trio_spread), int(trio_tol)])
+                        turns = [option.turns for option in trio]
+                        if max(turns) - min(turns) > trio_tol:
+                            debug_count("multi_trio_eta_fail", [target_id, int(max(turns) - min(turns)), int(trio_tol)])
                             continue
-                        if trio_spread > base_trio_tol:
-                            debug_count("multi_trio_eta_relaxed", [target_id, int(trio_spread), int(base_trio_tol), int(trio_tol)])
 
                         joint_turn = max(turns)
                         total_cap = sum(option.send_cap for option in trio)
@@ -9974,27 +7711,6 @@ def plan_moves(world, deadline=None):
         ],
     )
 
-    def trace_mission(reason, mission, detail=None, option=None):
-        target = world.planet_by_id.get(mission.target_id)
-        row = [
-            reason,
-            mission.kind,
-            int(mission.target_id),
-            None if target is None else int(target.owner),
-            None if target is None else int(target.production),
-            None if target is None else int(target.ships),
-            round(float(mission.score), 4),
-            int(mission.turns),
-            len(mission.options),
-        ]
-        if option is not None:
-            row.extend([int(option.src_id), int(option.send_cap), int(option.needed)])
-        else:
-            row.extend([None, None, None])
-        if detail is not None:
-            row.append(detail)
-        debug_event("mission_trace", row, limit=8)
-
     # Update commitments after every accepted launch so later plans see the
     # timing that is already spoken for.
     for mission in missions:
@@ -10011,16 +7727,10 @@ def plan_moves(world, deadline=None):
                     source_attack_left(option.src_id),
                     int(src.ships * REINFORCE_MAX_SOURCE_FRACTION),
                 )
-            elif mission.kind in ("rescue", "recapture"):
-                left = max(
-                    source_attack_left(option.src_id),
-                    min(source_inventory_left(option.src_id), int(option.send_cap)),
-                )
             else:
                 left = source_attack_left(option.src_id)
             if left <= 0:
                 debug_count("mission_source_empty", [mission.kind, option.src_id, mission.target_id])
-                trace_mission("source_empty", mission, [int(left)], option)
                 continue
 
             if mission.kind == "reinforce":
@@ -10033,7 +7743,6 @@ def plan_moves(world, deadline=None):
                     planned_commitments,
                     option.anchor_turn,
                     mission.turns,
-                    extra_arrivals=option.extra_arrivals,
                 )
             elif mission.kind == "rescue":
                 plan = settle_plan(
@@ -10093,28 +7802,23 @@ def plan_moves(world, deadline=None):
 
             if plan is None:
                 debug_count("mission_settle_none", [mission.kind, option.src_id, mission.target_id, int(left)])
-                trace_mission("settle_none", mission, [int(left)], option)
                 continue
             angle, turns, _, need, send = plan
             if send < need or need > left:
                 debug_count("mission_need_fail", [mission.kind, option.src_id, mission.target_id, int(need), int(left)])
-                trace_mission("need_fail", mission, [int(need), int(send), int(left), int(turns)], option)
                 continue
             if (
                 mission.kind in ("single", "crash_exploit")
                 and not midgame_attack_allowed(src, target, send, turns, world, modes)
             ):
                 debug_count("mission_midgame_block", [mission.kind, option.src_id, mission.target_id, int(send), int(turns)])
-                trace_mission("midgame_block", mission, [int(send), int(turns)], option)
                 continue
 
             sent = append_move(option.src_id, angle, send, target.id)
             if sent < need:
                 debug_count("append_short", [mission.kind, option.src_id, mission.target_id, int(sent), int(need)])
-                trace_mission("append_short", mission, [int(sent), int(need), int(turns)], option)
                 continue
             debug_count("accepted_mission", [mission.kind, option.src_id, mission.target_id, int(sent), int(turns)])
-            trace_mission("accept", mission, [int(sent), int(turns)], option)
             planned_commitments[target.id].append((turns, world.player, int(sent)))
             continue
 
@@ -10124,7 +7828,6 @@ def plan_moves(world, deadline=None):
             limits.append(min(left, option.send_cap))
         if min(limits) <= 0:
             debug_count("multi_source_empty", [mission.kind, mission.target_id])
-            trace_mission("multi_source_empty", mission, [int(value) for value in limits])
             continue
 
         missing = world.min_ships_to_own_at(
@@ -10136,12 +7839,10 @@ def plan_moves(world, deadline=None):
         )
         if missing <= 0 or sum(limits) < missing:
             debug_count("multi_missing_fail", [mission.kind, mission.target_id, int(missing), int(sum(limits))])
-            trace_mission("multi_missing_fail", mission, [int(missing), int(sum(limits)), [int(value) for value in limits]])
             continue
         desired_total = max(missing, int(mission.min_total or 0))
         if sum(limits) < desired_total:
             debug_count("multi_total_fail", [mission.kind, mission.target_id, int(desired_total), int(sum(limits))])
-            trace_mission("multi_total_fail", mission, [int(desired_total), int(sum(limits)), [int(value) for value in limits]])
             continue
 
         ordered = sorted(
@@ -10154,7 +7855,6 @@ def plan_moves(world, deadline=None):
                 sends[option.src_id] = min(limit, option.send_cap)
             if sum(sends.values()) < desired_total:
                 debug_count("multi_allocate_fail", [mission.kind, mission.target_id, int(desired_total - sum(sends.values()))])
-                trace_mission("multi_allocate_fail", mission, [int(desired_total), int(sum(sends.values()))])
                 continue
         else:
             remaining = desired_total
@@ -10165,7 +7865,6 @@ def plan_moves(world, deadline=None):
                 remaining -= send
             if remaining > 0:
                 debug_count("multi_allocate_fail", [mission.kind, mission.target_id, int(remaining)])
-                trace_mission("multi_allocate_fail", mission, [int(desired_total), int(remaining), {int(k): int(v) for k, v in sends.items()}])
                 continue
 
         reaimed = []
@@ -10182,27 +7881,13 @@ def plan_moves(world, deadline=None):
             reaimed.append((option.src_id, angle, turns, send))
         if not reaimed:
             debug_count("multi_reaim_fail", [mission.kind, mission.target_id])
-            trace_mission("multi_reaim_fail", mission, {int(k): int(v) for k, v in sends.items()})
             continue
 
         turns_only = [item[2] for item in reaimed]
-        eta_spread = max(turns_only) - min(turns_only)
-        base_eta_tol = swarm_eta_tolerance(mission.options, target, world, include_dynamic=False)
         eta_tol = swarm_eta_tolerance(mission.options, target, world)
-        if eta_spread > eta_tol:
-            debug_count("multi_eta_fail", [mission.kind, mission.target_id, int(eta_spread)])
-            trace_mission("multi_eta_fail", mission, [int(eta_spread), int(eta_tol), [int(turn) for turn in turns_only]])
+        if max(turns_only) - min(turns_only) > eta_tol:
+            debug_count("multi_eta_fail", [mission.kind, mission.target_id, int(max(turns_only) - min(turns_only))])
             continue
-        if eta_spread > base_eta_tol:
-            debug_count(
-                "multi_eta_relaxed",
-                [mission.kind, mission.target_id, int(eta_spread), int(base_eta_tol), int(eta_tol)],
-            )
-            trace_mission(
-                "multi_eta_relaxed",
-                mission,
-                [int(eta_spread), int(base_eta_tol), int(eta_tol), [int(turn) for turn in turns_only]],
-            )
 
         actual_joint_turn = max(turns_only)
         owner_after, _ = world.projected_state(
@@ -10213,7 +7898,6 @@ def plan_moves(world, deadline=None):
         )
         if owner_after != world.player:
             debug_count("multi_owner_fail", [mission.kind, mission.target_id, int(actual_joint_turn)])
-            trace_mission("multi_owner_fail", mission, [int(actual_joint_turn), int(owner_after), {int(k): int(v) for k, v in sends.items()}])
             continue
 
         committed = []
@@ -10230,10 +7914,8 @@ def plan_moves(world, deadline=None):
             committed.append((turns, world.player, int(actual)))
         if sum(item[2] for item in committed) < desired_total:
             debug_count("multi_commit_short", [mission.kind, mission.target_id, int(sum(item[2] for item in committed)), int(desired_total)])
-            trace_mission("multi_commit_short", mission, [int(sum(item[2] for item in committed)), int(desired_total)])
             continue
         debug_count("accepted_mission", [mission.kind, "multi", mission.target_id, int(sum(item[2] for item in committed)), int(actual_joint_turn)])
-        trace_mission("accept", mission, [int(sum(item[2] for item in committed)), int(actual_joint_turn), {int(item[0]): int(item[3]) for item in reaimed}])
         planned_commitments[target.id].extend(committed)
 
     # Use leftover attack budget for one more pass after the first commitment
@@ -10253,19 +7935,6 @@ def plan_moves(world, deadline=None):
                 if target.id == src.id or target.owner == world.player:
                     continue
                 if reserve_source_for_local_prize(src, target, world):
-                    continue
-                if opening_prize_reserve_blocks(src, target, policy):
-                    reserve = policy.get("opening_prize_reserve") or {}
-                    debug_count(
-                        "followup_opening_prize_reserve_block",
-                        [
-                            src.id,
-                            target.id,
-                            int(target.production),
-                            int(reserve.get("target", -1)),
-                            int(reserve.get("prod", 0)),
-                        ],
-                    )
                     continue
                 if target.id in world.comet_ids and target.production <= LOW_VALUE_COMET_PRODUCTION:
                     continue
@@ -10553,27 +8222,6 @@ def plan_moves(world, deadline=None):
 
                 if front.id == rear.id:
                     continue
-                if (
-                    REAR_LOW_HOME_STAGE_BLOCK_ENABLED
-                    and world.is_four_player
-                    and is_profile_home(front)
-                    and int(front.production) <= 1
-                    and int(rear.production) >= int(front.production) + REAR_LOW_HOME_STAGE_SOURCE_PROD_GAP
-                ):
-                    debug_count(
-                        "rear_stage_low_home_block",
-                        [
-                            rear.id,
-                            int(rear.production),
-                            int(rear.ships),
-                            front.id,
-                            int(front.production),
-                            int(front.ships),
-                            int(frontier_distance.get(rear.id, 0)),
-                            int(frontier_distance.get(front.id, 0)),
-                        ],
-                    )
-                    continue
 
                 send = int(source_attack_left(rear.id) * send_ratio)
                 if send < REAR_SEND_MIN_SHIPS:
@@ -10586,19 +8234,7 @@ def plan_moves(world, deadline=None):
                 angle, turns, _, _ = aim
                 if turns > REAR_MAX_TRAVEL_TURNS:
                     continue
-                actual = append_move(rear.id, angle, send, front.id)
-                if actual > 0:
-                    debug_count(
-                        "rear_stage_accept",
-                        [
-                            rear.id,
-                            int(rear.production),
-                            front.id,
-                            int(front.production),
-                            int(actual),
-                            int(turns),
-                        ],
-                    )
+                append_move(rear.id, angle, send)
 
     return finalize_moves()
 
@@ -10658,9 +8294,8 @@ def configure_strategy_profile(obs):
     global OPENING_META_ENABLED
     global PROFILE_SIGNATURE, PROFILE_EDGE_AIM, PROFILE_DELAYED_SNIPE
     global PROFILE_LOCAL_OPENING, PROFILE_LEAN_OPENING, PROFILE_AGGRESSIVE_DEFENSE
-    global PROFILE_OPENING_ROUTE_GUARD, PROFILE_SWARM_ETA_RELAX, PROFILE_ARCHETYPE, PROFILE_SELECTOR_REASON, PROFILE_HOME_IDS
-    global PROFILE_LAST_OWNERS, PROFILE_CAPTURED_AT, OPENING_SOFTEN_COMMITMENTS
-    global PROFILE_LAST_PROD_GAP, PROFILE_LAST_PROD_STEP, PROFILE_MATCH_PLAYERS
+    global PROFILE_OPENING_ROUTE_GUARD, PROFILE_ARCHETYPE, PROFILE_HOME_IDS
+    global PROFILE_LAST_OWNERS, PROFILE_CAPTURED_AT
 
     player = _read(obs, "player", 0)
     step = _read(obs, "step", 0) or 0
@@ -10669,9 +8304,6 @@ def configure_strategy_profile(obs):
     planets = [Planet(*planet) for planet in raw_planets]
     initial_planets = [Planet(*planet) for planet in raw_initial]
     my_planets = [planet for planet in planets if planet.owner == player]
-    observed_players = count_players(planets, [])
-    active_players = {planet.owner for planet in planets if planet.owner != -1}
-    is_four_player_initial = len(active_players) >= 3
 
     signature = (
         player,
@@ -10689,18 +8321,11 @@ def configure_strategy_profile(obs):
 
     if signature == PROFILE_SIGNATURE:
         activate_strategy_profile(step)
-        if step < OPENING_TURN_LIMIT:
-            PROFILE_MATCH_PLAYERS = max(PROFILE_MATCH_PLAYERS, observed_players)
     else:
         PROFILE_LAST_OWNERS = {}
         PROFILE_CAPTURED_AT = {}
-        OPENING_SOFTEN_COMMITMENTS = {}
-        PROFILE_LAST_PROD_GAP = None
-        PROFILE_LAST_PROD_STEP = None
-        PROFILE_MATCH_PLAYERS = observed_players
 
     if signature != PROFILE_SIGNATURE and my_planets:
-        PROFILE_MATCH_PLAYERS = max(PROFILE_MATCH_PLAYERS, observed_players)
         PROFILE_HOME_IDS = tuple(sorted(planet.id for planet in my_planets))
         low_orbit_route_profile = False
         low_orbit_delay_profile = False
@@ -11153,6 +8778,7 @@ def configure_strategy_profile(obs):
             if (
                 not is_static_planet(src)
                 and src.production == 2
+                and player == 1
                 and src.y < 20.0
             ):
                 low_orbit_route_profile = True
@@ -11258,6 +8884,7 @@ def configure_strategy_profile(obs):
                     and not close_affordable_prize
                     and not (
                         src.production == 2
+                        and player == 1
                         and src.y < 20.0
                     )
                     and target.production >= src.production + 2
@@ -11378,74 +9005,6 @@ def configure_strategy_profile(obs):
             if static_delay_profile:
                 break
 
-        route_override_profile = False
-        edge_strict_eta_profile = False
-        swarm_eta_relax_profile = True
-        selector_reason = "profile:base"
-        if is_four_player_initial:
-            for src in my_planets:
-                candidates = [
-                    (
-                        planet_distance(src, target),
-                        int(target.ships),
-                        int(target.production),
-                        target,
-                    )
-                    for target in initial_planets
-                    if target.id != src.id and target.owner != player
-                ]
-                high4 = [item for item in candidates if item[2] >= 4]
-                high5 = [item for item in candidates if item[2] >= 5]
-                nearest_high4 = min(high4, default=None, key=lambda item: item[0])
-                nearest_high5 = min(high5, default=None, key=lambda item: item[0])
-                src_static = is_static_planet(src)
-                src_prod = int(src.production)
-
-                if (
-                    not src_static
-                    and src_prod == 4
-                    and nearest_high5 is not None
-                    and nearest_high5[0] <= 32.0
-                    and nearest_high5[1] <= 20
-                ):
-                    route_override_profile = True
-                    selector_reason = "4p_route:dynamic_p4_close_p5"
-                if (
-                    src_static
-                    and src_prod >= 5
-                    and nearest_high5 is not None
-                    and nearest_high5[0] >= 24.0
-                ):
-                    route_override_profile = True
-                    selector_reason = "4p_route:static_p5_far_p5"
-                if (
-                    src_static
-                    and src_prod == 3
-                    and nearest_high4 is not None
-                    and nearest_high4[0] <= 20.0
-                    and nearest_high4[1] >= 20
-                ):
-                    route_override_profile = True
-                    selector_reason = "4p_route:static_p3_heavy_p4"
-                if (
-                    src_static
-                    and src_prod == 2
-                    and nearest_high4 is not None
-                    and nearest_high4[0] <= 30.0
-                    and nearest_high4[1] <= 12
-                ):
-                    route_override_profile = True
-                    selector_reason = "4p_route:static_p2_cheap_high4"
-                if (
-                    src_static
-                    and src_prod == 4
-                    and nearest_high4 is not None
-                    and nearest_high4[0] >= 24.0
-                ):
-                    edge_strict_eta_profile = True
-                    if selector_reason == "profile:base":
-                        selector_reason = "4p_edge_strict:static_p4_far_high4"
-
         route_candidate = (
             not suppress_edge_profile
             and (
@@ -11488,32 +9047,14 @@ def configure_strategy_profile(obs):
         else:
             archetype = "baseline"
 
-        if selector_reason == "profile:base":
-            selector_reason = f"profile:{archetype}"
-
-        if route_override_profile:
-            archetype = "route"
-            swarm_eta_relax_profile = False
-            aggressive_defense_profile = False
-            opening_route_guard_profile = False
-        elif edge_strict_eta_profile:
-            swarm_eta_relax_profile = False
-
         PROFILE_SIGNATURE = signature
         PROFILE_ARCHETYPE = archetype
-        PROFILE_SELECTOR_REASON = selector_reason
-        four_player_edge_enabled = os.environ.get("ORBIT_DISABLE_4P_EDGE") != "1"
-        PROFILE_EDGE_AIM = archetype in ("route", "both") or (
-            four_player_edge_enabled and edge_strict_eta_profile and not suppress_edge_profile
-        )
+        PROFILE_EDGE_AIM = archetype in ("route", "both")
         PROFILE_DELAYED_SNIPE = archetype in ("delay", "both")
         PROFILE_LOCAL_OPENING = archetype == "local"
         PROFILE_LEAN_OPENING = archetype == "lean"
         PROFILE_AGGRESSIVE_DEFENSE = aggressive_defense_profile
         PROFILE_OPENING_ROUTE_GUARD = opening_route_guard_profile
-        PROFILE_SWARM_ETA_RELAX = swarm_eta_relax_profile
-        PROFILE_LAST_PROD_GAP = None
-        PROFILE_LAST_PROD_STEP = None
 
         activate_strategy_profile(step)
 
@@ -11634,8 +9175,6 @@ def compact_flags():
         flags.append("def")
     if OPENING_ROUTE_GUARD_ENABLED:
         flags.append("guard")
-    if not PROFILE_SWARM_ETA_RELAX:
-        flags.append("eta_strict")
     return flags
 
 
@@ -11733,120 +9272,6 @@ def target_snapshot_rows(world, limit=5):
     return rows[:limit]
 
 
-def logged_prod_gap_delta(world):
-    global PROFILE_LAST_PROD_GAP, PROFILE_LAST_PROD_STEP
-    gap = int(world.my_prod - world.enemy_prod)
-    step = int(world.step)
-    if PROFILE_LAST_PROD_GAP is None or PROFILE_LAST_PROD_STEP is None or step <= PROFILE_LAST_PROD_STEP:
-        delta = 0
-    else:
-        delta = gap - int(PROFILE_LAST_PROD_GAP)
-    PROFILE_LAST_PROD_GAP = gap
-    PROFILE_LAST_PROD_STEP = step
-    return delta
-
-
-def source_diagnostic_rows(world, actions, limit=6):
-    debug = getattr(world, "debug_info", {}) or {}
-    budget_by_id = {}
-    for row in debug.get("budget") or []:
-        if not row:
-            continue
-        try:
-            budget_by_id[int(row[0])] = row
-        except (TypeError, ValueError):
-            continue
-
-    sent_by_source = defaultdict(int)
-    for action in actions or []:
-        if len(action) < 3:
-            continue
-        sent_by_source[int(action[0])] += int(action[2])
-
-    rows = []
-    for planet in world.my_planets:
-        budget = budget_by_id.get(planet.id)
-        reserve = int(budget[3]) if budget and len(budget) > 3 else int(world.keep_needed_map.get(planet.id, 0))
-        attack_budget = int(budget[4]) if budget and len(budget) > 4 else max(0, int(planet.ships) - reserve)
-        first_enemy = world.first_enemy_map.get(planet.id)
-        fall_turn = world.fall_turn_map.get(planet.id)
-        roles = []
-        if planet.id in PROFILE_HOME_IDS:
-            roles.append("home")
-        if is_defense_core_planet(planet, world):
-            roles.append("core")
-        if planet.id in world.comet_ids:
-            roles.append("comet")
-        rows.append(
-            [
-                planet.id,
-                int(planet.production),
-                int(planet.ships),
-                reserve,
-                attack_budget,
-                -1 if first_enemy is None else int(first_enemy),
-                -1 if fall_turn is None else int(fall_turn),
-                int(world.keep_needed_map.get(planet.id, 0)),
-                int(sent_by_source.get(planet.id, 0)),
-                roles,
-            ]
-        )
-
-    rows.sort(
-        key=lambda item: (
-            0 if item[8] > 0 else 1,
-            0 if "home" in item[9] else 1,
-            0 if "core" in item[9] else 1,
-            -item[1],
-            -item[2],
-            item[0],
-        )
-    )
-    return rows[:limit]
-
-
-def action_forecast_rows(world, actions, limit=6):
-    rows = []
-    for action in (actions or [])[:limit]:
-        if len(action) < 3:
-            continue
-        src_id, angle, ships = int(action[0]), float(action[1]), int(action[2])
-        target_id = first_current_ray_hit(world, src_id, angle)
-        target = world.planet_by_id.get(target_id)
-        eta = -1
-        owner_after = None
-        ships_after = None
-        if target is None:
-            inferred_target, inferred_turns = infer_opening_move_target(world, [src_id, angle, ships])
-            if inferred_target is not None:
-                target = inferred_target
-                target_id = target.id
-                eta = int(inferred_turns or -1)
-        if target is not None:
-            aim = world.plan_shot(src_id, target.id, ships)
-            if aim is not None:
-                eta = int(aim[1])
-                owner_after, ships_after = world.projected_state(
-                    target.id,
-                    eta,
-                    extra_arrivals=[(eta, world.player, ships)],
-                )
-        rows.append(
-            [
-                src_id,
-                target_id,
-                None if target is None else int(target.owner),
-                None if target is None else int(target.production),
-                None if target is None else int(target.ships),
-                ships,
-                eta,
-                None if owner_after is None else int(owner_after),
-                None if ships_after is None else int(ships_after),
-            ]
-        )
-    return rows
-
-
 def classify_empty_action(world, elapsed_ms, soft_budget):
     if world.my_planets and elapsed_ms >= max(0.0, (soft_budget or 0.0) * 1000.0 - 35.0):
         return "near_soft_deadline"
@@ -11877,108 +9302,6 @@ def classify_empty_action(world, elapsed_ms, soft_budget):
     return "no_selected_action"
 
 
-def turn_diagnostic_tags(world, actions, elapsed_ms, soft_budget):
-    tags = []
-    debug = getattr(world, "debug_info", {}) or {}
-    counts = debug.get("counts") or {}
-
-    if not world.my_planets:
-        tags.append("no_owned_planets")
-    if not actions:
-        tags.append("empty:" + classify_empty_action(world, elapsed_ms, soft_budget))
-    if world.my_planets and elapsed_ms >= max(0.0, (soft_budget or 0.0) * 1000.0 - 35.0):
-        tags.append("time_pressure")
-
-    if world.is_opening and not actions:
-        tags.append("opening_idle")
-        top_targets = target_snapshot_rows(world, limit=1)
-        if top_targets:
-            top = top_targets[0]
-            if int(top[2]) >= CORE_PRODUCTION and int(top[3]) <= 25 and float(top[4]) <= 32.0:
-                tags.append("opening_high_value_target_left")
-
-    budget_rows = debug.get("budget") or []
-    if debug.get("policy_fallback_budget"):
-        tags.append("policy_fallback_budget")
-    if world.my_planets and budget_rows:
-        no_attack_budget = all(int(row[4]) <= 0 for row in budget_rows if len(row) > 4)
-        no_immediate_fall = not threatened_planet_rows(world)
-        if no_attack_budget and no_immediate_fall:
-            tags.append("over_reserved_or_budget_locked")
-
-    if threatened_planet_rows(world):
-        tags.append("owned_planet_fall_risk")
-    if budget_pressure_rows(world):
-        tags.append("reserve_pressure")
-    if counts.get("no_route", 0) or counts.get("boxed_no_route", 0):
-        tags.append("routing_rejections")
-    if counts.get("route_guard_reject", 0):
-        tags.append("route_guard_rejections")
-    if counts.get("aim_no_solution", 0) or counts.get("route_target_miss", 0):
-        tags.append("aiming_failures")
-    if counts.get("opening_filter", 0):
-        tags.append("opening_filter_pressure")
-    if counts.get("multi_pair_eta_fail", 0) or counts.get("multi_trio_eta_fail", 0) or counts.get("multi_eta_fail", 0):
-        tags.append("multi_eta_failed")
-    if counts.get("multi_pair_total_fail", 0) or counts.get("multi_trio_total_fail", 0) or counts.get("multi_total_fail", 0):
-        tags.append("multi_mass_failed")
-    if debug.get("mission_count", 0) and not counts.get("accepted_mission", 0) and not actions:
-        tags.append("mission_rejections")
-
-    sent_by_source = defaultdict(int)
-    target_ids = set()
-    for action in actions or []:
-        if len(action) < 3:
-            continue
-        src_id, angle, ships = int(action[0]), float(action[1]), int(action[2])
-        sent_by_source[src_id] += ships
-        target_ids.add(first_current_ray_hit(world, src_id, angle))
-
-    for src_id, sent in sent_by_source.items():
-        src = world.planet_by_id.get(src_id)
-        if src is None:
-            continue
-        remaining = int(src.ships) - int(sent)
-        if (
-            (src.production >= CORE_PRODUCTION or src.id in PROFILE_HOME_IDS)
-            and remaining <= max(2, int(src.production) * 2)
-            and world.fall_turn_map.get(src.id) is None
-        ):
-            tags.append("core_source_drained")
-            break
-
-    if len([target_id for target_id in target_ids if target_id is not None]) >= 3:
-        tags.append("scattered_actions")
-
-    for planet in world.my_planets:
-        if (
-            planet.id in world.comet_ids
-            and int(planet.ships) > 0
-            and world.comet_life(planet.id) <= COMET_EVAC_LIFE_TURNS
-            and sent_by_source.get(planet.id, 0) < int(planet.ships)
-        ):
-            tags.append("comet_evac_due")
-            break
-
-    if (
-        world.is_four_player
-        and world.leading_enemy_owner is not None
-        and (
-            world.leading_enemy_prod >= world.my_prod + LEADER_SUPPRESSION_PROD_GAP
-            or world.leading_enemy_strength >= world.my_total * LEADER_SUPPRESSION_STRENGTH_RATIO
-        )
-    ):
-        tags.append("leader_pressure")
-
-    result = []
-    seen = set()
-    for tag in tags:
-        if tag not in seen:
-            result.append(tag)
-            seen.add(tag)
-    return result
-
-
 def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budget=None):
     if not orbit_log_enabled(world.step):
         return
@@ -11987,10 +9310,6 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
         my_planet_ships = sum(int(planet.ships) for planet in world.my_planets)
         enemy_planet_ships = sum(int(planet.ships) for planet in world.enemy_planets)
         neutral_prod = sum(int(planet.production) for planet in world.neutral_planets)
-        prod_gap_delta = logged_prod_gap_delta(world)
-        swing_metrics = (getattr(world, "debug_info", {}) or {}).get("prod_swing")
-        if swing_metrics is None:
-            swing_metrics = prod_swing_metrics(world)
         enemy_owner_stats = [
             [owner, int(world.owner_production.get(owner, 0)), int(world.owner_strength.get(owner, 0))]
             for owner in sorted(world.owner_strength)
@@ -12000,13 +9319,6 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
         action_detail_rows = []
         for src_id, angle, ships in actions:
             first_hit = first_current_ray_hit(world, int(src_id), float(angle))
-            if first_hit is None:
-                inferred_target, _ = infer_opening_move_target(
-                    world,
-                    [int(src_id), float(angle), int(ships)],
-                )
-                if inferred_target is not None:
-                    first_hit = inferred_target.id
             action_rows.append(
                 [
                     int(src_id),
@@ -12029,14 +9341,12 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
             )
 
         payload = {
-            "v": 2,
+            "v": 1,
             "step": int(world.step),
             "player": int(world.player),
             "phase": orbit_phase(world),
             "players": int(world.num_players),
-            "active_players": int(getattr(world, "active_num_players", world.num_players)),
             "profile": PROFILE_ARCHETYPE,
-            "profile_reason": PROFILE_SELECTOR_REASON,
             "flags": compact_flags(),
             "home": [int(home_id) for home_id in PROFILE_HOME_IDS],
             "my": [
@@ -12054,33 +9364,17 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
                 enemy_owner_stats,
             ],
             "neutral": [len(world.neutral_planets), int(neutral_prod)],
-            "lead": [
-                int(world.my_prod - world.enemy_prod),
-                int(world.my_total - world.enemy_total),
-                int(world.my_prod),
-                int(world.enemy_prod),
-                int(world.my_total),
-                int(world.enemy_total),
-            ],
-            "prod_gap_delta": int(prod_gap_delta),
-            "threatened_prod_sum": int(swing_metrics.get("threatened_prod_sum", 0)),
-            "avoidable_prod_swing": int(swing_metrics.get("avoidable_prod_swing", 0)),
-            "threatened_gap_swing": int(swing_metrics.get("threatened_gap_swing", 0)),
-            "prod_swing": swing_metrics.get("rows", []),
             "core": top_planet_rows(world.my_planets),
-            "src": source_diagnostic_rows(world, actions),
             "risk": threatened_planet_rows(world),
             "pressure": budget_pressure_rows(world),
             "targets": target_snapshot_rows(world),
             "act": action_rows,
             "actx": action_detail_rows,
-            "actf": action_forecast_rows(world, actions),
             "sent": sum(int(action[2]) for action in actions),
             "ms": round(float(elapsed_ms), 2),
             "soft_ms": round(float((soft_budget or 0.0) * 1000.0), 2),
             "over": _read(obs, "remainingOverageTime", None) if obs is not None else None,
             "empty": classify_empty_action(world, elapsed_ms, soft_budget) if not actions else "",
-            "diag": turn_diagnostic_tags(world, actions, elapsed_ms, soft_budget),
             "dbg": getattr(world, "debug_info", {}),
         }
         print(
@@ -12111,7 +9405,7 @@ def agent(obs, config=None):
         log_agent_turn(world, actions, (time.perf_counter() - start_time) * 1000.0, obs=obs, config=config, soft_budget=0.0)
         return actions
     act_timeout = _read(config, "actTimeout", 1.0) if config is not None else 1.0
-    soft_budget = min(SOFT_ACT_DEADLINE, max(0.55, act_timeout * SOFT_ACT_DEADLINE))
+    soft_budget = min(SOFT_ACT_DEADLINE, max(0.55, act_timeout * 0.82))
     deadline = None if os.environ.get("ORBIT_NO_DEADLINE") == "1" else start_time + soft_budget
     actions = plan_moves(world, deadline=deadline)
     log_agent_turn(world, actions, (time.perf_counter() - start_time) * 1000.0, obs=obs, config=config, soft_budget=soft_budget)

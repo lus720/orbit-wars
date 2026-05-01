@@ -1,7 +1,7 @@
 # Optimization Log
 
 This document records local evaluation results while optimizing root `submission.py`
-against `baselines/submission.py`.
+against `baselines/mine_old_version.py`.
 
 Evaluation command template:
 
@@ -18,13 +18,13 @@ regression signals, not official leaderboard results.
 
 No strategy change.
 
-Root `submission.py` and `baselines/submission.py` were byte-identical before
+Root `submission.py` and `baselines/mine_old_version.py` were byte-identical before
 this run:
 
 ```text
 cmp_exit=0
 submission.py md5:          a70a052e298404be04de384230f950ab
-baselines/submission.py md5: a70a052e298404be04de384230f950ab
+baselines/mine_old_version.py md5: a70a052e298404be04de384230f950ab
 ```
 
 ### Command
@@ -40,7 +40,7 @@ Seeds: 42-61
 Alternate sides: True
 Episode steps: 500
 Workers: 10
-Baseline agent: baselines/submission.py
+Baseline agent: baselines/mine_old_version.py
 Candidate agent: submission.py
 ```
 
@@ -92,4 +92,3 @@ Future entries should record:
 - win/loss/tie summary,
 - absolute win-rate change versus this baseline and versus the previous run,
 - short interpretation of whether the change is worth keeping.
-

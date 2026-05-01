@@ -1,6 +1,16 @@
 必须对我的意见提出质疑
 
-迭代根目录下的submission
+比赛规则：readme.md
+
+agent：./submission.py
+
+数据：replay and log （实际比赛中会提供）
+
+目标：设计一个智能体，在比赛中获得尽可能高的分数
+
+
+
+
 
 保证实验可复现性，seed42开始
 

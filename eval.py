@@ -255,6 +255,7 @@ def stable_sorted(values):
 
 
 def map_signature_from_episode(episode):
+    resolved_seed = resolved_map_seed_from_episode(episode)
     for step in episode.get("steps", []):
         if not step:
             continue
@@ -264,7 +265,7 @@ def map_signature_from_episode(episode):
         if not planets:
             continue
         payload = {
-            "randomSeed": episode.get("configuration", {}).get("randomSeed"),
+            "seed": resolved_seed,
             "planets": stable_sorted(round_map_value(planet) for planet in planets),
             "initial_planets": stable_sorted(
                 round_map_value(planet)
@@ -278,6 +279,27 @@ def map_signature_from_episode(episode):
         }
         return {"hash": stable_json_hash(payload), "step": observation.get("step")}
     return {"hash": None, "step": None}
+
+
+def resolved_map_seed_from_episode(episode, fallback=None):
+    info_seed = episode.get("info", {}).get("seed")
+    if info_seed is not None:
+        return int(info_seed)
+    configuration = episode.get("configuration", {})
+    for key in ("seed", "randomSeed"):
+        value = configuration.get(key)
+        if value is not None:
+            return int(value)
+    if fallback is not None:
+        return int(fallback)
+    return None
+
+
+def scrub_unsupported_seed_config(env, map_seed):
+    if "seed" in env.specification.configuration:
+        return
+    if env.configuration.get("seed") == map_seed:
+        env.configuration.seed = None
 
 
 def seed_stable_slot(seed, slot_base_seed):
@@ -432,19 +454,22 @@ def run_game(
     start_time = time.perf_counter()
     config = {
         "episodeSteps": episode_steps,
+        "seed": map_seed,
         "randomSeed": map_seed,
     }
     if act_timeout is not None:
         config["actTimeout"] = act_timeout
     env = make("orbit_wars", config, debug=True)
+    scrub_unsupported_seed_config(env, map_seed)
     random.seed(map_seed)
     env.run(agents)
     elapsed = time.perf_counter() - start_time
     episode_json = env.toJSON()
+    resolved_map_seed = resolved_map_seed_from_episode(episode_json, map_seed)
     map_signature = map_signature_from_episode(episode_json)
     match_metadata = {
         "seed": map_seed,
-        "map_seed": map_seed,
+        "map_seed": resolved_map_seed,
         "my_slot": my_slot,
         "baseline_slot": baseline_slot,
         "agents": agent_paths_by_slot,
@@ -504,7 +529,7 @@ def run_game(
     return {
         "game": game_index + 1,
         "seed": seed,
-        "map_seed": map_seed,
+        "map_seed": resolved_map_seed,
         "map_hash": map_signature["hash"],
         "agent_hash": match_metadata["agent_hash"],
         "match_hash": match_metadata["match_hash"],
@@ -700,7 +725,7 @@ def main():
     print(f"Games: {game_count}")
     print(f"Seeds: {seeds}")
     print(f"Match key: {args.match_key}")
-    print("Map seed: randomSeed=seed")
+    print("Map seed: configuration.seed=seed")
     if fixed_my_slot is None:
         if args.match_key == "seed":
             print(f"My slot: seed-stable slot=(seed-{args.slot_base_seed}) mod 2")
@@ -798,7 +823,7 @@ def main():
             "baseline_agent": str(baseline_path),
             "games": game_count,
             "seeds": seeds,
-            "map_seed_policy": "randomSeed=seed",
+            "map_seed_policy": "configuration.seed=seed",
             "match_key": args.match_key,
             "slot_base_seed": args.slot_base_seed,
             "my_slot": fixed_my_slot,

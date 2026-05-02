@@ -252,8 +252,6 @@ RECAPTURE_IMMEDIATE_WEIGHT = 0.4
 REAR_SOURCE_MIN_SHIPS = 16
 REAR_DISTANCE_RATIO = 1.25
 REAR_STAGE_PROGRESS = 0.78
-REAR_SEND_RATIO_TWO_PLAYER = 0.62
-REAR_SEND_RATIO_FOUR_PLAYER = 0.7
 REAR_SEND_MIN_SHIPS = 10
 REAR_MAX_TRAVEL_TURNS = 40
 
@@ -2384,6 +2382,10 @@ def opening_committed_target(src, world):
     ):
         return None
 
+    source_cap = max(0, int(src.ships) - OPENING_COMMIT_MIN_RESERVE)
+    if source_cap <= 0:
+        return None
+
     best = None
     best_key = None
     for target in world.neutral_planets:
@@ -2394,13 +2396,40 @@ def opening_committed_target(src, world):
         if int(target.ships) > OPENING_COMMIT_MAX_SHIPS:
             continue
 
-        distance = planet_distance(src, target)
-        if distance > OPENING_COMMIT_MAX_DIST:
+        seeded = world.best_probe_aim(
+            src.id,
+            target.id,
+            source_cap,
+            hints=(int(target.ships) + OPENING_COMMIT_MARGIN,),
+        )
+        if seeded is None:
             continue
-        score = opening_target_score(src, target, world)
+        _, aim = seeded
+        _, arrival_turns, arrival_x, arrival_y = aim
+        arrival_route = safe_angle_and_distance(
+            src.x,
+            src.y,
+            src.radius,
+            arrival_x,
+            arrival_y,
+            target.radius,
+        )
+        if arrival_route is None:
+            continue
+        _, arrival_distance = arrival_route
+        if arrival_distance > OPENING_COMMIT_MAX_DIST:
+            continue
+        score = opening_target_score(src, target, world, arrival_turns)
         if score < OPENING_COMMIT_MIN_SCORE:
             continue
-        key = (-score, -target.production, int(target.ships), distance, target.id)
+        key = (
+            -score,
+            -target.production,
+            int(target.ships),
+            int(arrival_turns),
+            arrival_distance,
+            target.id,
+        )
         if best_key is None or key < best_key:
             best_key = key
             best = target
@@ -6578,6 +6607,47 @@ def plan_moves(world, deadline=None):
                 doomed.add(planet.id)
         return doomed
 
+    def build_rear_support_context():
+        if not (
+            (world.enemy_planets or world.neutral_planets)
+            and len(world.my_planets) > 1
+            and not world.is_late
+        ):
+            return None
+
+        live_doomed = compute_live_doomed()
+        frontier_targets = (
+            world.enemy_planets
+            if world.enemy_planets
+            else (world.static_neutral_planets or world.neutral_planets)
+        )
+        frontier_distance = {
+            planet.id: nearest_distance_to_set(planet.x, planet.y, frontier_targets)
+            for planet in world.my_planets
+        }
+        safe_fronts = [
+            planet for planet in world.my_planets if planet.id not in live_doomed
+        ]
+        if not safe_fronts:
+            return None
+
+        front_anchor = min(safe_fronts, key=lambda planet: frontier_distance[planet.id])
+        rear_ids = {
+            planet.id
+            for planet in world.my_planets
+            if planet.id != front_anchor.id
+            and planet.id not in live_doomed
+            and frontier_distance[planet.id] >= frontier_distance[front_anchor.id] * REAR_DISTANCE_RATIO
+        }
+        return {
+            "frontier_targets": frontier_targets,
+            "frontier_distance": frontier_distance,
+            "safe_fronts": safe_fronts,
+            "front_anchor": front_anchor,
+            "live_doomed": live_doomed,
+            "rear_ids": rear_ids,
+        }
+
     def time_filters_pass(target, turns, needed, src_cap):
         if not candidate_time_valid(target, turns, world, VERY_LATE_CAPTURE_BUFFER if world.is_very_late else LATE_CAPTURE_BUFFER):
             return False
@@ -6870,6 +6940,10 @@ def plan_moves(world, deadline=None):
 
     # Update commitments after every accepted launch so later plans see the
     # timing that is already spoken for.
+    rear_context_for_missions = build_rear_support_context()
+    rear_source_ids_for_missions = (
+        rear_context_for_missions["rear_ids"] if rear_context_for_missions else set()
+    )
     for mission in missions:
         if expired():
             debug_count("expired_mission_loop")
@@ -6879,25 +6953,53 @@ def plan_moves(world, deadline=None):
         if mission.kind in ("single", "rescue", "crash_exploit"):
             option = mission.options[0]
             src = world.planet_by_id[option.src_id]
-            left = source_attack_left(option.src_id)
+            rear_full_rescue = (
+                mission.kind == "rescue" and option.src_id in rear_source_ids_for_missions
+            )
+            left = (
+                source_inventory_left(option.src_id)
+                if rear_full_rescue
+                else source_attack_left(option.src_id)
+            )
             if left <= 0:
                 debug_count("mission_source_empty", [mission.kind, option.src_id, mission.target_id])
                 continue
 
             if mission.kind == "rescue":
-                plan = settle_plan(
-                    src,
-                    target,
-                    left,
-                    min(left, option.send_cap),
-                    world,
-                    planned_commitments,
-                    modes,
-                    policy,
-                    mission="rescue",
-                    eval_turn_fn=lambda _turns, hold_turn=mission.turns: hold_turn,
-                    anchor_turn=option.anchor_turn,
-                )
+                if rear_full_rescue:
+                    plan = None
+                    full_aim = world.plan_shot(src.id, target.id, left)
+                    if full_aim is not None:
+                        angle, turns, _, _ = full_aim
+                        eval_turn = int(math.ceil(mission.turns))
+                        if turns <= eval_turn:
+                            need = world.min_ships_to_own_by(
+                                target.id,
+                                eval_turn,
+                                world.player,
+                                arrival_turn=turns,
+                                planned_commitments=planned_commitments,
+                                upper_bound=left,
+                            )
+                            if 0 < need <= left:
+                                plan = (angle, turns, eval_turn, need, left)
+                    if plan is None:
+                        debug_count("rear_full_rescue_fail", [option.src_id, mission.target_id, int(left)])
+                        continue
+                else:
+                    plan = settle_plan(
+                        src,
+                        target,
+                        left,
+                        min(left, option.send_cap),
+                        world,
+                        planned_commitments,
+                        modes,
+                        policy,
+                        mission="rescue",
+                        eval_turn_fn=lambda _turns, hold_turn=mission.turns: hold_turn,
+                        anchor_turn=option.anchor_turn,
+                    )
             elif mission.kind == "crash_exploit":
                 plan = settle_plan(
                     src,
@@ -7286,35 +7388,17 @@ def plan_moves(world, deadline=None):
         and not world.is_late
         and allow_optional_phase()
     ):
-        live_doomed = compute_live_doomed()
-        frontier_targets = (
-            world.enemy_planets
-            if world.enemy_planets
-            else (world.static_neutral_planets or world.neutral_planets)
-        )
-        frontier_distance = {
-            planet.id: nearest_distance_to_set(planet.x, planet.y, frontier_targets)
-            for planet in world.my_planets
-        }
-        safe_fronts = [
-            planet for planet in world.my_planets if planet.id not in live_doomed
-        ]
-        if safe_fronts:
-            front_anchor = min(safe_fronts, key=lambda planet: frontier_distance[planet.id])
-            send_ratio = (
-                REAR_SEND_RATIO_FOUR_PLAYER if world.is_four_player else REAR_SEND_RATIO_TWO_PLAYER
-            )
-            if modes["is_finishing"]:
-                send_ratio = max(send_ratio, REAR_SEND_RATIO_FOUR_PLAYER)
+        rear_context = build_rear_support_context()
+        if rear_context is not None:
+            frontier_targets = rear_context["frontier_targets"]
+            frontier_distance = rear_context["frontier_distance"]
+            safe_fronts = rear_context["safe_fronts"]
+            rear_ids = rear_context["rear_ids"]
 
             for rear in sorted(world.my_planets, key=lambda planet: -frontier_distance[planet.id]):
                 if expired():
                     return finalize_moves()
-                if rear.id == front_anchor.id or rear.id in live_doomed:
-                    continue
-                if source_attack_left(rear.id) < REAR_SOURCE_MIN_SHIPS:
-                    continue
-                if frontier_distance[rear.id] < frontier_distance[front_anchor.id] * REAR_DISTANCE_RATIO:
+                if rear.id not in rear_ids:
                     continue
 
                 stage_candidates = [
@@ -7344,8 +7428,8 @@ def plan_moves(world, deadline=None):
                 if front.id == rear.id:
                     continue
 
-                send = int(source_attack_left(rear.id) * send_ratio)
-                if send < REAR_SEND_MIN_SHIPS:
+                send = source_inventory_left(rear.id)
+                if send < REAR_SOURCE_MIN_SHIPS or send < REAR_SEND_MIN_SHIPS:
                     continue
 
                 aim = world.plan_shot(rear.id, front.id, send)

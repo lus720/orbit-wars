@@ -23,6 +23,7 @@ PLAYER_COLORS = (
 )
 NUM_PLAYERS = 2
 DEFAULT_SLOT_BASE_SEED = 42
+OWLOG_PREFIX = "OWLOG "
 
 
 def load_agent(path, module_name):
@@ -110,55 +111,66 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
-def iter_owlog_payloads(records):
+def parse_owlog_payload(raw_payload, record_index, stream_name):
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as exc:
+        payload = {
+            "_parse_error": str(exc),
+            "_raw": raw_payload,
+        }
+    if isinstance(payload, dict):
+        payload = dict(payload)
+        payload["_record"] = record_index
+        payload["_stream"] = stream_name
+        return payload
+    return {
+        "payload": payload,
+        "_record": record_index,
+        "_stream": stream_name,
+    }
+
+
+def split_stream_capture(text, record_index, stream_name):
+    ordinary_parts = []
+    owlog_rows = []
+    for line in (text or "").splitlines(keepends=True):
+        line_text = line.rstrip("\r\n")
+        if line_text.startswith(OWLOG_PREFIX):
+            owlog_rows.append(
+                parse_owlog_payload(
+                    line_text[len(OWLOG_PREFIX) :],
+                    record_index,
+                    stream_name,
+                )
+            )
+        else:
+            ordinary_parts.append(line)
+    return "".join(ordinary_parts), owlog_rows
+
+
+def build_agent_log(records):
+    rows = []
     for record_index, record in enumerate(records):
-        for stream_name in ("stdout", "stderr"):
-            for line in (record.get(stream_name) or "").splitlines():
-                if not line.startswith("OWLOG "):
-                    continue
-                raw_payload = line[len("OWLOG ") :]
-                try:
-                    payload = json.loads(raw_payload)
-                except json.JSONDecodeError as exc:
-                    payload = {
-                        "_parse_error": str(exc),
-                        "_raw": raw_payload,
-                    }
-                if isinstance(payload, dict):
-                    payload = dict(payload)
-                    payload["_record"] = record_index
-                    payload["_stream"] = stream_name
-                else:
-                    payload = {
-                        "payload": payload,
-                        "_record": record_index,
-                        "_stream": stream_name,
-                    }
-                yield payload
-
-
-def write_jsonl(path, rows):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
-            handle.write("\n")
-
-
-def write_capture_log(path, records):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for record_index, record in enumerate(records):
-            for stream_name in ("stdout", "stderr"):
-                text = record.get(stream_name) or ""
-                if not text:
-                    continue
-                handle.write(f"--- record {record_index} {stream_name} ---\n")
-                handle.write(text)
-                if not text.endswith("\n"):
-                    handle.write("\n")
+        stdout, stdout_owlog = split_stream_capture(
+            record.get("stdout") or "",
+            record_index,
+            "stdout",
+        )
+        stderr, stderr_owlog = split_stream_capture(
+            record.get("stderr") or "",
+            record_index,
+            "stderr",
+        )
+        rows.append(
+            {
+                "record": record_index,
+                "stdout": stdout,
+                "stderr": stderr,
+                "owlog": stdout_owlog + stderr_owlog,
+            }
+        )
+    return rows
 
 
 def path_is_relative_to(path, root):
@@ -476,21 +488,17 @@ def run_game(
 
     artifact_episode_path = None
     artifact_log_path = None
-    artifact_capture_path = None
     artifact_manifest_path = None
     should_save_artifacts = save_artifacts == "all" or (
         save_artifacts == "loss" and result == "LOSS"
     )
     if should_save_artifacts:
-        prefix = f"2p-seed{seed}-game{game_index + 1:02d}"
         artifact_root = Path(save_dir)
-        artifact_episode_path = artifact_root / f"episode-{prefix}.json"
-        artifact_log_path = artifact_root / f"{prefix}-{my_slot}-owlog.jsonl"
-        artifact_capture_path = artifact_root / f"{prefix}-{my_slot}-capture.log"
-        artifact_manifest_path = artifact_root / f"manifest-{prefix}.json"
+        artifact_episode_path = artifact_root / f"seed{seed}-replay.json"
+        artifact_log_path = artifact_root / f"seed{seed}-log.json"
+        artifact_manifest_path = artifact_root / f"seed{seed}-manifest.json"
         write_json(artifact_episode_path, episode_json)
-        write_jsonl(artifact_log_path, iter_owlog_payloads(my_recorder.records))
-        write_capture_log(artifact_capture_path, my_recorder.records)
+        write_json(artifact_log_path, build_agent_log(my_recorder.records))
         write_json(artifact_manifest_path, match_metadata)
 
     return {
@@ -514,7 +522,6 @@ def run_game(
         "replay_path": str(replay_path) if replay_path is not None else None,
         "artifact_episode_path": str(artifact_episode_path) if artifact_episode_path is not None else None,
         "artifact_log_path": str(artifact_log_path) if artifact_log_path is not None else None,
-        "artifact_capture_path": str(artifact_capture_path) if artifact_capture_path is not None else None,
         "artifact_manifest_path": str(artifact_manifest_path) if artifact_manifest_path is not None else None,
         "steps": len(env.steps),
         "elapsed": elapsed,
@@ -574,7 +581,7 @@ def run_game_worker(
     )
 
 
-def parse_seeds(seed_args, seed_start, games):
+def parse_seeds(seed_args, seed_start):
     if seed_args:
         seeds = []
         for item in seed_args:
@@ -583,7 +590,7 @@ def parse_seeds(seed_args, seed_start, games):
                 if part:
                     seeds.append(int(part))
         return seeds
-    return list(range(seed_start, seed_start + games))
+    return [int(seed_start)]
 
 
 def main():
@@ -592,7 +599,6 @@ def main():
     )
     parser.add_argument("--my-agent", default="submission.py")
     parser.add_argument("--baseline-agent", default="baselines/mine_old_version.py")
-    parser.add_argument("--games", type=int, default=100)
     parser.add_argument(
         "--seeds",
         nargs="*",
@@ -603,8 +609,8 @@ def main():
     parser.add_argument(
         "--act-timeout",
         type=float,
-        default=None,
-        help="Optional Kaggle environment actTimeout seconds. Use a large value for no practical local timeout.",
+        default=2.0,
+        help="Kaggle environment actTimeout seconds. Use a large value for no practical local timeout.",
     )
     parser.add_argument(
         "--match-key",
@@ -626,7 +632,7 @@ def main():
         "--workers",
         type=int,
         default=None,
-        help="Parallel worker count. Defaults to min(games, 8, CPU count).",
+        help="Parallel worker count. Defaults to min(number of seeds, 8, CPU count).",
     )
     parser.add_argument(
         "--my-slot",
@@ -641,10 +647,15 @@ def main():
         help="Deprecated alias for --my-slot 0.",
     )
     parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Save replay HTML, replay JSON, and structured agent log JSON for every game.",
+    )
+    parser.add_argument(
         "--save-artifacts",
         choices=("none", "loss", "all"),
         default="none",
-        help="Save episode JSON plus my-agent OWLOG capture for no games, losses, or all games.",
+        help="Save replay JSON plus structured my-agent log JSON for no games, losses, or all games.",
     )
     parser.add_argument(
         "--save-replays",
@@ -656,7 +667,7 @@ def main():
         "--save-root",
         choices=("output", "replay"),
         default="replay",
-        help="Top-level save root. HTML, episode JSON, OWLOG, and summary must all use this root.",
+        help="Top-level save root. HTML, replay JSON, logs, and summary must all use this root.",
     )
     parser.add_argument(
         "--run-name",
@@ -674,18 +685,19 @@ def main():
 
     my_agent, my_path = load_agent(args.my_agent, "my_submission_agent")
     baseline_agent, baseline_path = load_agent(args.baseline_agent, "baseline_old_version_agent")
-    seeds = parse_seeds(args.seeds, args.seed_start, args.games)
-    if len(seeds) != args.games:
-        raise ValueError(f"Expected {args.games} seeds, got {len(seeds)}: {seeds}")
+    seeds = parse_seeds(args.seeds, args.seed_start)
+    game_count = len(seeds)
+    save_replays = "all" if args.log else args.save_replays
+    save_artifacts = "all" if args.log else args.save_artifacts
     if args.no_alternate_sides and args.my_slot not in (None, 0):
         raise ValueError("--no-alternate-sides conflicts with --my-slot other than 0")
     fixed_my_slot = 0 if args.no_alternate_sides else args.my_slot
-    workers = args.workers or min(args.games, 8, os.cpu_count() or 1)
-    workers = max(1, min(workers, args.games))
+    workers = args.workers or min(game_count, 8, os.cpu_count() or 1)
+    workers = max(1, min(workers, game_count))
 
     print(f"My agent:       {my_path}")
     print(f"Baseline agent: {baseline_path}")
-    print(f"Games: {args.games}")
+    print(f"Games: {game_count}")
     print(f"Seeds: {seeds}")
     print(f"Match key: {args.match_key}")
     print("Map seed: randomSeed=seed")
@@ -699,8 +711,9 @@ def main():
     print(f"Episode steps: {args.episode_steps}")
     print(f"Act timeout: {args.act_timeout if args.act_timeout is not None else 'environment default'}")
     print(f"Workers: {workers}")
-    print(f"Save replays: {args.save_replays}")
-    print(f"Save artifacts: {args.save_artifacts}")
+    print(f"Save replays: {save_replays}")
+    print(f"Save artifacts: {save_artifacts}")
+    print(f"Log shortcut: {'on' if args.log else 'off'}")
     print(f"Save root: {args.save_root}")
     print(f"Save dir: {save_dir}")
     print()
@@ -735,8 +748,8 @@ def main():
                     my_slot,
                     args.episode_steps,
                     args.act_timeout,
-                    args.save_replays,
-                    args.save_artifacts,
+                    save_replays,
+                    save_artifacts,
                     str(save_dir),
                     args.log_every,
                 )
@@ -750,13 +763,8 @@ def main():
                 f"Game {result['game']:02d} | seed={result['seed']} | "
                 f"map_seed={result['map_seed']} | "
                 f"{result['result']} | "
-                f"map={result['map_hash']} | match={result['match_hash']} | "
                 f"steps={result['steps']} | "
-                f"time={result['elapsed']:.2f}s"
-                + (f" | replay={result['replay_path']}" if result.get("replay_path") else "")
-                + (f" | log={result['artifact_log_path']}" if result.get("artifact_log_path") else "")
-                + (f" | capture={result['artifact_capture_path']}" if result.get("artifact_capture_path") else "")
-                + (f" | manifest={result['artifact_manifest_path']}" if result.get("artifact_manifest_path") else ""),
+                f"time={result['elapsed']:.2f}s",
                 flush=True,
             )
 
@@ -772,7 +780,7 @@ def main():
         baseline_total += float(result["baseline_reward"] or 0.0)
 
     decided = wins + losses
-    win_rate = wins / args.games if args.games else 0.0
+    win_rate = wins / game_count if game_count else 0.0
     non_tie_win_rate = wins / decided if decided else 0.0
 
     print()
@@ -780,7 +788,7 @@ def main():
     print(f"  wins/losses/ties: {wins}/{losses}/{ties}")
     print(f"  win rate: {win_rate:.1%}")
     print(f"  non-tie win rate: {non_tie_win_rate:.1%}")
-    print(f"  average reward: my={my_total / args.games:.2f}, baseline={baseline_total / args.games:.2f}")
+    print(f"  average reward: my={my_total / game_count:.2f}, baseline={baseline_total / game_count:.2f}")
 
     if summary_json:
         ordered_results = sorted(results, key=lambda item: item["game"])
@@ -788,13 +796,15 @@ def main():
             "kind": "2p",
             "my_agent": str(my_path),
             "baseline_agent": str(baseline_path),
-            "games": args.games,
+            "games": game_count,
             "seeds": seeds,
             "map_seed_policy": "randomSeed=seed",
             "match_key": args.match_key,
             "slot_base_seed": args.slot_base_seed,
             "my_slot": fixed_my_slot,
-            "save_replays": args.save_replays,
+            "log": args.log,
+            "save_replays": save_replays,
+            "save_artifacts": save_artifacts,
             "save_root": args.save_root,
             "save_dir": str(save_dir),
             "wins": wins,
@@ -802,8 +812,8 @@ def main():
             "ties": ties,
             "win_rate": win_rate,
             "non_tie_win_rate": non_tie_win_rate,
-            "avg_my_reward": my_total / args.games if args.games else 0.0,
-            "avg_baseline_reward": baseline_total / args.games if args.games else 0.0,
+            "avg_my_reward": my_total / game_count if game_count else 0.0,
+            "avg_baseline_reward": baseline_total / game_count if game_count else 0.0,
             "results": ordered_results,
         }
         write_json(summary_json, payload)

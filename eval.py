@@ -249,6 +249,7 @@ def run_game(
     seed,
     my_slot,
     episode_steps,
+    act_timeout,
     save_replays,
     save_artifacts,
     save_dir,
@@ -267,14 +268,13 @@ def run_game(
 
     random.seed(seed)
     start_time = time.perf_counter()
-    env = make(
-        "orbit_wars",
-        {
-            "episodeSteps": episode_steps,
-            "randomSeed": seed,
-        },
-        debug=True,
-    )
+    config = {
+        "episodeSteps": episode_steps,
+        "randomSeed": seed,
+    }
+    if act_timeout is not None:
+        config["actTimeout"] = act_timeout
+    env = make("orbit_wars", config, debug=True)
     random.seed(seed)
     env.run(agents)
     elapsed = time.perf_counter() - start_time
@@ -351,6 +351,7 @@ def run_game_worker(
     seed,
     my_slot,
     episode_steps,
+    act_timeout,
     save_replays,
     save_artifacts,
     save_dir,
@@ -369,6 +370,7 @@ def run_game_worker(
         seed,
         my_slot,
         episode_steps,
+        act_timeout,
         save_replays,
         save_artifacts,
         save_dir,
@@ -402,6 +404,12 @@ def main():
     )
     parser.add_argument("--seed-start", type=int, default=42)
     parser.add_argument("--episode-steps", type=int, default=500)
+    parser.add_argument(
+        "--act-timeout",
+        type=float,
+        default=None,
+        help="Optional Kaggle environment actTimeout seconds. Use a large value for no practical local timeout.",
+    )
     parser.add_argument(
         "--match-key",
         choices=("seed", "order"),
@@ -491,6 +499,7 @@ def main():
     else:
         print(f"My slot: fixed player {fixed_my_slot}")
     print(f"Episode steps: {args.episode_steps}")
+    print(f"Act timeout: {args.act_timeout if args.act_timeout is not None else 'environment default'}")
     print(f"Workers: {workers}")
     print(f"Save replays: {args.save_replays}")
     print(f"Save artifacts: {args.save_artifacts}")
@@ -527,6 +536,7 @@ def main():
                     seed,
                     my_slot,
                     args.episode_steps,
+                    args.act_timeout,
                     args.save_replays,
                     args.save_artifacts,
                     str(save_dir),

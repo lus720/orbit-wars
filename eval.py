@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import hashlib
 import html as html_lib
 import inspect
 import importlib.util
@@ -40,11 +41,15 @@ def load_agent(path, module_name):
 
 
 class AgentRecorder:
-    def __init__(self, agent, log_enabled=False, log_every=1):
+    def __init__(self, agent, log_enabled=False, log_every=1, random_seed=None):
         self.agent = agent
         self.log_enabled = log_enabled
         self.log_every = max(1, int(log_every))
         self.records = []
+        self.random_state = None
+        if random_seed is not None:
+            rng = random.Random(int(random_seed))
+            self.random_state = rng.getstate()
         try:
             parameters = list(inspect.signature(agent).parameters.values())
             positional = [
@@ -69,9 +74,18 @@ class AgentRecorder:
             os.environ["ORBIT_LOG_EVERY"] = str(self.log_every)
         try:
             with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-                if self.accepts_config:
-                    return self.agent(obs, config)
-                return self.agent(obs)
+                old_random_state = None
+                if self.random_state is not None:
+                    old_random_state = random.getstate()
+                    random.setstate(self.random_state)
+                try:
+                    if self.accepts_config:
+                        return self.agent(obs, config)
+                    return self.agent(obs)
+                finally:
+                    if self.random_state is not None:
+                        self.random_state = random.getstate()
+                        random.setstate(old_random_state)
         finally:
             self.records.append(
                 {
@@ -135,6 +149,72 @@ def relative_path(path):
         return str(path.relative_to(Path.cwd().resolve()))
     except ValueError:
         return str(path)
+
+
+def stable_json_hash(payload):
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+def deterministic_seed_token(*parts):
+    return stable_json_hash(list(parts))
+
+
+def deterministic_seed_value(*parts):
+    return int(deterministic_seed_token(*parts), 16)
+
+
+def round_map_value(value):
+    if isinstance(value, float):
+        return round(value, 8)
+    if isinstance(value, list):
+        return [round_map_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: round_map_value(value[key]) for key in sorted(value)}
+    return value
+
+
+def stable_sorted(values):
+    return sorted(
+        values,
+        key=lambda value: json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+    )
+
+
+def map_signature_from_episode(episode):
+    for step in episode.get("steps", []):
+        if not step:
+            continue
+        state = step[0]
+        observation = state.get("observation", {})
+        planets = observation.get("planets") or []
+        if not planets:
+            continue
+        payload = {
+            "randomSeed": episode.get("configuration", {}).get("randomSeed"),
+            "planets": stable_sorted(round_map_value(planet) for planet in planets),
+            "initial_planets": stable_sorted(
+                round_map_value(planet)
+                for planet in observation.get("initial_planets", [])
+            ),
+            "angular_velocity": round_map_value(observation.get("angular_velocity")),
+            "comets": stable_sorted(
+                round_map_value(comet) for comet in observation.get("comets", [])
+            ),
+            "comet_planet_ids": sorted(observation.get("comet_planet_ids", [])),
+        }
+        return {"hash": stable_json_hash(payload), "step": observation.get("step")}
+    return {"hash": None, "step": None}
 
 
 def seed_stable_slot(seed, slot_base_seed):
@@ -245,6 +325,7 @@ def run_game(
     my_agent,
     baseline_agent,
     my_agent_path,
+    baseline_agent_path,
     game_index,
     seed,
     my_slot,
@@ -257,27 +338,58 @@ def run_game(
 ):
     my_slot = int(my_slot)
     baseline_slot = 1 - my_slot
+    map_seed = int(seed)
+    agent_paths_by_slot = [None, None]
+    agent_paths_by_slot[my_slot] = relative_path(my_agent_path)
+    agent_paths_by_slot[baseline_slot] = relative_path(baseline_agent_path)
+    agent_seed_tokens_by_slot = [
+        deterministic_seed_token("agent", map_seed, slot, path)
+        for slot, path in enumerate(agent_paths_by_slot)
+    ]
 
     capture_logs = save_artifacts != "none"
-    my_recorder = AgentRecorder(my_agent, log_enabled=capture_logs, log_every=log_every)
-    baseline_recorder = AgentRecorder(baseline_agent, log_enabled=False, log_every=log_every)
+    my_recorder = AgentRecorder(
+        my_agent,
+        log_enabled=capture_logs,
+        log_every=log_every,
+        random_seed=int(agent_seed_tokens_by_slot[my_slot], 16),
+    )
+    baseline_recorder = AgentRecorder(
+        baseline_agent,
+        log_enabled=False,
+        log_every=log_every,
+        random_seed=int(agent_seed_tokens_by_slot[baseline_slot], 16),
+    )
 
     agents = [None, None]
     agents[my_slot] = my_recorder
     agents[baseline_slot] = baseline_recorder
 
-    random.seed(seed)
+    random.seed(map_seed)
     start_time = time.perf_counter()
     config = {
         "episodeSteps": episode_steps,
-        "randomSeed": seed,
+        "randomSeed": map_seed,
     }
     if act_timeout is not None:
         config["actTimeout"] = act_timeout
     env = make("orbit_wars", config, debug=True)
-    random.seed(seed)
+    random.seed(map_seed)
     env.run(agents)
     elapsed = time.perf_counter() - start_time
+    episode_json = env.toJSON()
+    map_signature = map_signature_from_episode(episode_json)
+    match_metadata = {
+        "seed": map_seed,
+        "map_seed": map_seed,
+        "my_slot": my_slot,
+        "baseline_slot": baseline_slot,
+        "agents": agent_paths_by_slot,
+        "agent_seed_tokens": agent_seed_tokens_by_slot,
+        "map": map_signature,
+    }
+    match_metadata["match_hash"] = stable_json_hash(match_metadata)
+    match_metadata["agent_hash"] = stable_json_hash(agent_paths_by_slot)
 
     final = env.steps[-1]
     my_state = final[my_slot]
@@ -313,6 +425,7 @@ def run_game(
 
     artifact_episode_path = None
     artifact_log_path = None
+    artifact_manifest_path = None
     should_save_artifacts = save_artifacts == "all" or (
         save_artifacts == "loss" and result == "LOSS"
     )
@@ -321,12 +434,20 @@ def run_game(
         artifact_root = Path(save_dir)
         artifact_episode_path = artifact_root / f"episode-{prefix}.json"
         artifact_log_path = artifact_root / f"{prefix}-{my_slot}.json"
-        write_json(artifact_episode_path, env.toJSON())
+        artifact_manifest_path = artifact_root / f"manifest-{prefix}.json"
+        write_json(artifact_episode_path, episode_json)
         write_json(artifact_log_path, my_recorder.records)
+        write_json(artifact_manifest_path, match_metadata)
 
     return {
         "game": game_index + 1,
         "seed": seed,
+        "map_seed": map_seed,
+        "map_hash": map_signature["hash"],
+        "agent_hash": match_metadata["agent_hash"],
+        "match_hash": match_metadata["match_hash"],
+        "agents": agent_paths_by_slot,
+        "agent_seed_tokens": agent_seed_tokens_by_slot,
         "my_slot": my_slot,
         "baseline_slot": baseline_slot,
         "my_reward": my_reward,
@@ -339,6 +460,7 @@ def run_game(
         "replay_path": str(replay_path) if replay_path is not None else None,
         "artifact_episode_path": str(artifact_episode_path) if artifact_episode_path is not None else None,
         "artifact_log_path": str(artifact_log_path) if artifact_log_path is not None else None,
+        "artifact_manifest_path": str(artifact_manifest_path) if artifact_manifest_path is not None else None,
         "steps": len(env.steps),
         "elapsed": elapsed,
     }
@@ -357,7 +479,25 @@ def run_game_worker(
     save_dir,
     log_every,
 ):
+    my_slot = int(my_slot)
+    baseline_slot = 1 - my_slot
+    random.seed(
+        deterministic_seed_value(
+            "agent-import",
+            int(seed),
+            my_slot,
+            relative_path(my_agent_path),
+        )
+    )
     my_agent, _ = load_agent(my_agent_path, f"my_submission_agent_{game_index}")
+    random.seed(
+        deterministic_seed_value(
+            "agent-import",
+            int(seed),
+            baseline_slot,
+            relative_path(baseline_agent_path),
+        )
+    )
     baseline_agent, _ = load_agent(
         baseline_agent_path,
         f"baseline_old_version_agent_{game_index}",
@@ -366,6 +506,7 @@ def run_game_worker(
         my_agent,
         baseline_agent,
         my_agent_path,
+        baseline_agent_path,
         game_index,
         seed,
         my_slot,
@@ -416,7 +557,8 @@ def main():
         default="seed",
         help=(
             "Use seed-stable player slot by default. Use order to reproduce "
-            "the older behavior where list order determined the slot."
+            "the older behavior where list order determined the slot; order "
+            "mode intentionally breaks the seed-fixed agent-slot guarantee."
         ),
     )
     parser.add_argument(
@@ -491,6 +633,7 @@ def main():
     print(f"Games: {args.games}")
     print(f"Seeds: {seeds}")
     print(f"Match key: {args.match_key}")
+    print("Map seed: randomSeed=seed")
     if fixed_my_slot is None:
         if args.match_key == "seed":
             print(f"My slot: seed-stable slot=(seed-{args.slot_base_seed}) mod 2")
@@ -550,11 +693,14 @@ def main():
 
             print(
                 f"Game {result['game']:02d} | seed={result['seed']} | "
+                f"map_seed={result['map_seed']} | "
                 f"{result['result']} | "
+                f"map={result['map_hash']} | match={result['match_hash']} | "
                 f"steps={result['steps']} | "
                 f"time={result['elapsed']:.2f}s"
                 + (f" | replay={result['replay_path']}" if result.get("replay_path") else "")
-                + (f" | log={result['artifact_log_path']}" if result.get("artifact_log_path") else ""),
+                + (f" | log={result['artifact_log_path']}" if result.get("artifact_log_path") else "")
+                + (f" | manifest={result['artifact_manifest_path']}" if result.get("artifact_manifest_path") else ""),
                 flush=True,
             )
 
@@ -588,6 +734,7 @@ def main():
             "baseline_agent": str(baseline_path),
             "games": args.games,
             "seeds": seeds,
+            "map_seed_policy": "randomSeed=seed",
             "match_key": args.match_key,
             "slot_base_seed": args.slot_base_seed,
             "my_slot": fixed_my_slot,

@@ -194,14 +194,6 @@ DEFENSE_SEND_MARGIN_PROD_WEIGHT = 1
 DEFENSE_SHIP_VALUE = 0.55
 DEFENSE_CORE_PRODUCTION = 3
 CORE_PRODUCTION = 4
-CORE_PASSIVE_KEEP_BASE = 5
-CORE_PASSIVE_KEEP_PROD_WEIGHT = 3
-CORE_PASSIVE_BOOST_KEEP_BASE = 7
-CORE_PASSIVE_BOOST_PROD_WEIGHT = 5
-ORIGINAL_HOME_EXTRA_KEEP = 10
-LOW_PROD_PROFILE_HOME_EXTRA_KEEP = 0
-EARLY_P5_CORE_MIN_KEEP = 40
-EARLY_P5_CORE_KEEP_TURN_LIMIT = 90
 FRESH_CORE_SOURCE_LOCK_TURN_LIMIT = 90
 FRESH_CORE_SOURCE_LOCK_TURNS = 22
 FRESH_CORE_SOURCE_LOCK_PROD_MIN = 4
@@ -210,40 +202,6 @@ FRESH_CORE_SOURCE_LOCK_FRACTION = 0.15
 FRESH_CORE_SOURCE_LOCK_THREAT_HORIZON = 14
 FRESH_CORE_SOURCE_LOCK_THREAT_TURN = 10
 FRESH_CORE_SOURCE_LOCK_STACK_FLOOR = 10
-FRESH_CORE_PASSIVE_HOLD_TURN_LIMIT = 130
-FRESH_CORE_PASSIVE_HOLD_TURNS = 36
-FRESH_CORE_PASSIVE_HOLD_BASE = 14
-FRESH_CORE_PASSIVE_HOLD_PROD_WEIGHT = 7
-FRESH_CORE_PASSIVE_HOLD_ENEMY_DIST = 38.0
-FRESH_CORE_PASSIVE_SOFT_HOLD_TURNS = 30
-FRESH_CORE_PASSIVE_SLOW_HIGH_HOME_TURNS = 35
-SLOW_HIGH_HOME_HEAVY_CORE_DIST = 30.0
-SLOW_HIGH_HOME_HEAVY_CORE_SHIPS = 35
-SLOW_HIGH_HOME_CHEAP_CORE_DIST = 24.0
-SLOW_HIGH_HOME_CHEAP_CORE_SHIPS = 24
-FRESH_CORE_PASSIVE_SOFT_HOLD_BASE = 12
-FRESH_CORE_PASSIVE_SOFT_HOLD_PROD_WEIGHT = 6
-FRESH_CORE_PASSIVE_STRONG_DIST = 13.0
-FRESH_CORE_PASSIVE_STRONG_SHIPS = 20
-FRESH_CORE_PASSIVE_STRONG_P5_DIST = 22.0
-FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_DIST = 14.0
-FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_SHIPS = 30
-FRESH_CAPTURED_CORE_HOLD_TURN_LIMIT = 180
-FRESH_CAPTURED_CORE_HOLD_TURNS = 32
-FRESH_CAPTURED_CORE_HOLD_BASE = 14
-FRESH_CAPTURED_CORE_HOLD_PROD_WEIGHT = 7
-FRESH_CAPTURED_HOSTILE_CORE_BONUS = 10
-FRESH_CAPTURED_CORE_ENEMY_DIST = 38.0
-FRAGILE_HOME_INITIAL_SHIPS = 12
-FRAGILE_HOME_SOURCE_THREAT_STACK_MULT = 6
-CORE_SOURCE_PRESSURE_PROD_DEFICIT = 8
-CORE_SOURCE_PRESSURE_STACK_MULT = 6
-CORE_SOURCE_PRESSURE_ATTACK_FRACTION = 0.25
-CORE_POST_SEND_SEVERE_PROD_GAP = 12
-CORE_POST_SEND_SEVERE_TOTAL_RATIO = 0.72
-CORE_POST_SEND_SEVERE_KEEP_FRACTION = 0.45
-CORE_POST_SEND_SEVERE_KEEP_BASE = 8
-CORE_POST_SEND_SEVERE_KEEP_PROD_WEIGHT = 3
 RESERVE_RELIEF_START_STEP = 60
 RESERVE_RELIEF_PROD_GAP = 10
 RESERVE_RELIEF_TOTAL_RATIO = 0.72
@@ -260,13 +218,11 @@ CORE_THREAT_RATIO = 0.52
 CORE_URGENT_THREAT_TURN = 8
 CORE_URGENT_THREAT_RATIO = 0.70
 CORE_VISIBLE_THREAT_TURN = 20
-CORE_THREATENED_ATTACK_FRACTION = 0.25
 CORE_DEFENSE_SCORE_MULT = 2.2
 CORE_URGENT_DEFENSE_SCORE_MULT = 1.35
 CORE_RECAPTURE_SCORE_MULT = 1.25
 PREDICTED_FLEET_THREAT_HORIZON = 14
 SOURCE_LOCK_FALL_TURNS = 14
-SOURCE_LOCK_MIN_PRODUCTION = 3
 RECLAIM_HOME_VALUE_MULT = 2.35
 THREATENED_CORE_VALUE_MULT = 1.18
 ENEMY_OCCUPATION_TURN_TWO_PLAYER = 40
@@ -381,12 +337,9 @@ PROACTIVE_DEFENSE_HORIZON = 12
 PROACTIVE_DEFENSE_RATIO = 0.18
 AGGRESSIVE_DEFENSE_HORIZON = 18
 AGGRESSIVE_DEFENSE_RATIO = 0.28
-MULTI_ENEMY_PROACTIVE_HORIZON = 14
-MULTI_ENEMY_PROACTIVE_RATIO = 0.22
 MULTI_ENEMY_STACK_WINDOW = 3
 REACTION_SOURCE_TOP_K_MY = 4
 REACTION_SOURCE_TOP_K_ENEMY = 4
-PROACTIVE_ENEMY_TOP_K = 3
 
 CRASH_EXPLOIT_ENABLED = True
 CRASH_EXPLOIT_MIN_TOTAL_SHIPS = 10
@@ -2092,17 +2045,6 @@ def fresh_neutral_core_source_lock(planet, world):
     if age is None or age > FRESH_CORE_SOURCE_LOCK_TURNS:
         return False
 
-    eta, stack = enemy_pressure_to_planet(
-        planet,
-        world,
-        FRESH_CORE_SOURCE_LOCK_THREAT_HORIZON,
-    )
-    if (
-        eta <= FRESH_CORE_SOURCE_LOCK_THREAT_TURN
-        and stack >= max(FRESH_CORE_SOURCE_LOCK_STACK_FLOOR, int(planet.production) * 3)
-    ):
-        return True
-
     fleet_eta, fleet_stack = enemy_fleet_pressure_to_planet(
         planet,
         world,
@@ -2113,27 +2055,6 @@ def fresh_neutral_core_source_lock(planet, world):
         and fleet_eta <= FRESH_CORE_SOURCE_LOCK_THREAT_TURN
         and fleet_stack >= max(FRESH_CORE_SOURCE_LOCK_STACK_FLOOR, int(planet.production) * 3)
     )
-
-
-def low_home_close_heavy_core_profile(world):
-    if not low_production_home_profile(world):
-        return False
-    homes = [
-        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
-        for home_id in PROFILE_HOME_IDS
-    ]
-    homes = [home for home in homes if home is not None]
-    for home in homes:
-        for target in world.initial_by_id.values():
-            if target.id == home.id:
-                continue
-            if target.production < CORE_PRODUCTION:
-                continue
-            if int(target.ships) < FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_SHIPS:
-                continue
-            if planet_distance(home, target) <= FRESH_CORE_PASSIVE_LOW_HOME_HEAVY_DIST:
-                return True
-    return False
 
 
 def low_home_rich_core_profile(world):
@@ -2158,145 +2079,6 @@ def low_home_rich_core_profile(world):
         if nearby_cores >= LOW_HOME_RICH_CORE_MIN_COUNT:
             return True
     return False
-
-
-def core_passive_boost_profile(world):
-    home_productions = []
-    for home_id in PROFILE_HOME_IDS:
-        home = world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
-        if home is not None:
-            home_productions.append(int(home.production))
-    if not home_productions:
-        return False
-    if any(prod == 3 for prod in home_productions):
-        return False
-    if any(prod <= 1 for prod in home_productions):
-        return low_home_close_heavy_core_profile(world)
-    return True
-
-
-def fresh_core_passive_strong_profile(world):
-    if low_home_close_heavy_core_profile(world):
-        return True
-    homes = [
-        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
-        for home_id in PROFILE_HOME_IDS
-    ]
-    homes = [home for home in homes if home is not None]
-    for home in homes:
-        for target in world.initial_by_id.values():
-            if target.id == home.id:
-                continue
-            if target.production < CORE_PRODUCTION + 1:
-                continue
-            if int(target.ships) < FRESH_CORE_PASSIVE_STRONG_SHIPS:
-                continue
-            target_dist = planet_distance(home, target)
-            if target_dist <= FRESH_CORE_PASSIVE_STRONG_DIST:
-                return True
-            if (
-                target.production >= CORE_PRODUCTION + 1
-                and target_dist <= FRESH_CORE_PASSIVE_STRONG_P5_DIST
-            ):
-                return True
-    return False
-
-
-def slow_high_home_core_profile(world):
-    homes = [
-        world.initial_by_id.get(home_id) or world.planet_by_id.get(home_id)
-        for home_id in PROFILE_HOME_IDS
-    ]
-    homes = [home for home in homes if home is not None and home.production >= CORE_PRODUCTION + 1]
-    for home in homes:
-        has_heavy_core = False
-        has_cheap_core = False
-        for target in world.initial_by_id.values():
-            if target.id == home.id or target.owner != -1:
-                continue
-            if target.production < CORE_PRODUCTION:
-                continue
-            distance = planet_distance(home, target)
-            if (
-                int(target.ships) >= SLOW_HIGH_HOME_HEAVY_CORE_SHIPS
-                and distance <= SLOW_HIGH_HOME_HEAVY_CORE_DIST
-            ):
-                has_heavy_core = True
-            if (
-                int(target.ships) <= SLOW_HIGH_HOME_CHEAP_CORE_SHIPS
-                and distance <= SLOW_HIGH_HOME_CHEAP_CORE_DIST
-            ):
-                has_cheap_core = True
-        if has_heavy_core and not has_cheap_core:
-            return True
-    return False
-
-
-def fresh_neutral_core_passive_hold(planet, world):
-    if world.step > FRESH_CORE_PASSIVE_HOLD_TURN_LIMIT:
-        return 0
-    if planet.production < CORE_PRODUCTION:
-        return 0
-    if initial_owner_of(planet, world) != -1:
-        return 0
-    age = captured_age(planet, world)
-    strong_hold = fresh_core_passive_strong_profile(world)
-    active_turns = (
-        FRESH_CORE_PASSIVE_HOLD_TURNS
-        if strong_hold
-        else FRESH_CORE_PASSIVE_SOFT_HOLD_TURNS
-    )
-    if not strong_hold and slow_high_home_core_profile(world):
-        active_turns = max(active_turns, FRESH_CORE_PASSIVE_SLOW_HIGH_HOME_TURNS)
-    if age is None or age > active_turns:
-        return 0
-    if not world.enemy_planets:
-        return 0
-
-    enemy_dist = nearest_distance_to_set(planet.x, planet.y, world.enemy_planets)
-    if enemy_dist > FRESH_CORE_PASSIVE_HOLD_ENEMY_DIST:
-        return 0
-    low_home_cautious = low_production_home_profile(world) and not low_home_close_heavy_core_profile(world)
-    if strong_hold:
-        keep = FRESH_CORE_PASSIVE_HOLD_BASE + int(planet.production) * FRESH_CORE_PASSIVE_HOLD_PROD_WEIGHT
-    elif low_home_cautious:
-        keep = FRESH_CORE_PASSIVE_SOFT_HOLD_BASE + int(planet.production) * (
-            FRESH_CORE_PASSIVE_SOFT_HOLD_PROD_WEIGHT - 1
-        )
-    else:
-        keep = FRESH_CORE_PASSIVE_SOFT_HOLD_BASE + int(planet.production) * FRESH_CORE_PASSIVE_SOFT_HOLD_PROD_WEIGHT
-    return min(int(planet.ships), keep)
-
-
-def fresh_captured_core_passive_hold(planet, world):
-    if world.step > FRESH_CAPTURED_CORE_HOLD_TURN_LIMIT:
-        return 0
-    if planet.production < CORE_PRODUCTION:
-        return 0
-    if is_original_home(planet, world):
-        return 0
-    age = captured_age(planet, world)
-    if age is None or age > FRESH_CAPTURED_CORE_HOLD_TURNS:
-        return 0
-    if not world.enemy_planets:
-        return 0
-    if nearest_distance_to_set(planet.x, planet.y, world.enemy_planets) > FRESH_CAPTURED_CORE_ENEMY_DIST:
-        return 0
-
-    keep = FRESH_CAPTURED_CORE_HOLD_BASE + int(planet.production) * FRESH_CAPTURED_CORE_HOLD_PROD_WEIGHT
-    initial_owner = initial_owner_of(planet, world)
-    if initial_owner not in (-1, world.player):
-        keep += FRESH_CAPTURED_HOSTILE_CORE_BONUS
-    return min(int(planet.ships), keep)
-
-
-def fragile_profile_core_home(planet, world):
-    if not is_profile_home(planet) or planet.production < CORE_PRODUCTION:
-        return False
-    initial = world.initial_by_id.get(planet.id)
-    if initial is None:
-        return False
-    return int(initial.ships) <= FRAGILE_HOME_INITIAL_SHIPS
 
 
 def is_profile_defense_home(planet):
@@ -2333,35 +2115,6 @@ def is_defense_core_planet(planet, world):
             and low_production_home_profile(world)
         )
     )
-
-
-def enemy_pressure_to_planet(planet, world, horizon):
-    best_eta = 10**9
-    strongest = 0
-    stacked = 0
-    threats = []
-    for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
-        ships = max(1, int(enemy.ships))
-        seeded = world.best_probe_aim(enemy.id, planet.id, ships)
-        if seeded is None:
-            continue
-        _, aim = seeded
-        eta = aim[1]
-        if eta > horizon:
-            continue
-        best_eta = min(best_eta, eta)
-        strongest = max(strongest, ships)
-        threats.append((eta, ships))
-
-    if threats:
-        threats.sort()
-        for idx, (eta, _) in enumerate(threats):
-            stacked = max(
-                stacked,
-                sum(ships for other_eta, ships in threats if abs(other_eta - eta) <= MULTI_ENEMY_STACK_WINDOW),
-            )
-
-    return best_eta, max(strongest, stacked)
 
 
 def fleet_predicted_hit_turn(fleet, planet, world, horizon):
@@ -2420,45 +2173,6 @@ def enemy_fleet_pressure_to_planet(planet, world, horizon):
             sum(ships for other_eta, ships in threats if abs(other_eta - eta) <= MULTI_ENEMY_STACK_WINDOW),
         )
     return best_eta, stacked
-
-
-def core_passive_keep(planet, world):
-    protected_home = is_profile_defense_home(planet)
-    low_home_core = (
-        planet.production >= DEFENSE_CORE_PRODUCTION
-        and low_production_home_profile(world)
-    )
-    if world.is_late or not (is_core_planet(planet, world) or protected_home or low_home_core):
-        return 0
-    keep = CORE_PASSIVE_KEEP_BASE + int(planet.production * CORE_PASSIVE_KEEP_PROD_WEIGHT)
-    if is_original_home(planet, world) or protected_home:
-        keep += CORE_PASSIVE_KEEP_BASE + ORIGINAL_HOME_EXTRA_KEEP
-        if is_profile_home(planet) and planet.production <= 1:
-            keep += LOW_PROD_PROFILE_HOME_EXTRA_KEEP
-    elif (
-        world.step < EARLY_P5_CORE_KEEP_TURN_LIMIT
-        and int(planet.production) >= 5
-        and opening_trap_signature_active(world)
-    ):
-        keep = max(keep, EARLY_P5_CORE_MIN_KEEP)
-    if core_passive_boost_profile(world):
-        boosted_keep = CORE_PASSIVE_BOOST_KEEP_BASE + int(planet.production) * CORE_PASSIVE_BOOST_PROD_WEIGHT
-        if (is_original_home(planet, world) or protected_home) and planet.production >= CORE_PRODUCTION:
-            boosted_keep += CORE_PASSIVE_BOOST_KEEP_BASE + ORIGINAL_HOME_EXTRA_KEEP
-        keep = max(keep, boosted_keep)
-    keep = max(keep, fresh_neutral_core_passive_hold(planet, world))
-    keep = max(keep, fresh_captured_core_passive_hold(planet, world))
-    return min(int(planet.ships), keep)
-
-
-def high_value_prep_core(planet, world):
-    if initial_owner_of(planet, world) != -1:
-        return False
-    initial = world.initial_by_id.get(planet.id)
-    initial_ships = int(initial.ships) if initial is not None else int(planet.ships)
-    return planet.production >= CORE_PRODUCTION + 1 or (
-        planet.production >= CORE_PRODUCTION and initial_ships <= 16
-    )
 
 
 def enemy_occupation_window_open(world):
@@ -4322,39 +4036,6 @@ def build_opening_meta_moves(world, debug_set=None):
     return best_moves
 
 
-def stacked_enemy_proactive_keep(planet, world):
-    threats = []
-    for enemy in world.enemy_planets:
-        seeded = world.best_probe_aim(
-            enemy.id,
-            planet.id,
-            max(1, int(enemy.ships)),
-        )
-        if seeded is None:
-            continue
-        _, aim = seeded
-        eta = aim[1]
-        if eta > MULTI_ENEMY_PROACTIVE_HORIZON:
-            continue
-        threats.append((eta, int(enemy.ships)))
-
-    if not threats:
-        return 0
-
-    threats.sort()
-    best_stacked = 0
-    left = 0
-    running = 0
-    for right in range(len(threats)):
-        running += threats[right][1]
-        while threats[right][0] - threats[left][0] > MULTI_ENEMY_STACK_WINDOW:
-            running -= threats[left][1]
-            left += 1
-        best_stacked = max(best_stacked, running)
-
-    return int(best_stacked * MULTI_ENEMY_PROACTIVE_RATIO)
-
-
 def swarm_eta_tolerance(options, target, world):
     tolerance = MULTI_SOURCE_ETA_TOLERANCE
     if len(options) >= 3:
@@ -4471,9 +4152,7 @@ def build_policy_state(world, deadline=None):
         )
 
         proactive_keep = 0
-        occupation_window_open = enemy_occupation_window_open(world)
         prep_window_open = enemy_occupation_prep_window_open(world)
-        prep_core = high_value_prep_core(planet, world)
         predictive_defense_allowed = not (
             world.my_prod >= world.enemy_prod + 6
             and world.my_total >= world.enemy_total * 1.05
@@ -4481,33 +4160,6 @@ def build_policy_state(world, deadline=None):
         predicted_enemy_eta = None
         predicted_enemy_stack = 0
         if prep_window_open:
-            for enemy in nearest_sources_to_target(planet, world.enemy_planets, PROACTIVE_ENEMY_TOP_K):
-                enemy_aim = world.plan_shot(enemy.id, planet.id, max(1, int(enemy.ships)))
-                if enemy_aim is None:
-                    continue
-                enemy_eta = enemy_aim[1]
-                ratio = defense_ratio
-                active_horizon = defense_horizon
-                if is_defense_core_planet(planet, world):
-                    active_horizon = max(active_horizon, CORE_THREAT_HORIZON)
-                elif not occupation_window_open:
-                    continue
-                if not occupation_window_open and not prep_core:
-                    continue
-                if enemy_eta > active_horizon:
-                    continue
-                if is_defense_core_planet(planet, world) and enemy_eta <= CORE_THREAT_HORIZON:
-                    ratio = max(ratio, CORE_THREAT_RATIO)
-                    if enemy_eta <= CORE_URGENT_THREAT_TURN:
-                        ratio = max(ratio, CORE_URGENT_THREAT_RATIO)
-                proactive_keep = max(
-                    proactive_keep,
-                    int(enemy.ships * ratio),
-                )
-            if occupation_window_open or prep_core:
-                proactive_keep = max(proactive_keep, stacked_enemy_proactive_keep(planet, world))
-            if occupation_window_open or prep_core:
-                proactive_keep = max(proactive_keep, core_passive_keep(planet, world))
             fleet_horizon = defense_horizon
             if is_defense_core_planet(planet, world):
                 fleet_horizon = max(fleet_horizon, CORE_THREAT_HORIZON)
@@ -4560,59 +4212,6 @@ def build_policy_state(world, deadline=None):
                 )
                 reserve[planet.id] = min(reserve[planet.id], relief_keep)
         available = max(0, int(planet.ships) - reserve[planet.id])
-        meaningful_predicted_threat = predicted_enemy_stack >= max(8, int(planet.production) * 3)
-        if (
-            (occupation_window_open or prep_core)
-            and
-            fall_turn is not None
-            and fall_turn <= SOURCE_LOCK_FALL_TURNS
-            and (
-                planet.production >= SOURCE_LOCK_MIN_PRODUCTION
-                or is_original_home(planet, world)
-                or is_profile_defense_home(planet)
-            )
-        ):
-            available = 0
-        elif (
-            (occupation_window_open or prep_core)
-            and is_defense_core_planet(planet, world)
-            and first_enemy is not None
-            and first_enemy <= CORE_VISIBLE_THREAT_TURN
-            and (
-                world.first_enemy_map.get(planet.id) is not None
-                or meaningful_predicted_threat
-            )
-        ):
-            available = int(available * CORE_THREATENED_ATTACK_FRACTION)
-        elif (
-            (occupation_window_open or prep_core)
-            and predictive_defense_allowed
-            and (
-                fragile_profile_core_home(planet, world)
-                or (
-                    is_defense_core_planet(planet, world)
-                    and world.enemy_prod >= world.my_prod + CORE_SOURCE_PRESSURE_PROD_DEFICIT
-                )
-            )
-        ):
-            pressure_eta, pressure_stack = enemy_pressure_to_planet(
-                planet,
-                world,
-                CORE_THREAT_HORIZON,
-            )
-            pressure_stack_floor = (
-                int(planet.production) * FRAGILE_HOME_SOURCE_THREAT_STACK_MULT
-                if fragile_profile_core_home(planet, world)
-                else int(planet.production) * CORE_SOURCE_PRESSURE_STACK_MULT
-            )
-            if (
-                pressure_eta <= CORE_VISIBLE_THREAT_TURN
-                and pressure_stack >= max(
-                    20,
-                    pressure_stack_floor,
-                )
-            ):
-                available = int(available * CORE_SOURCE_PRESSURE_ATTACK_FRACTION)
 
         attack_budget[planet.id] = available
 
@@ -6250,10 +5849,7 @@ def build_timeout_fallback_moves(world):
         return []
 
     def source_left(source):
-        keep = max(
-            int(world.keep_needed_map.get(source.id, 0)),
-            core_passive_keep(source, world),
-        )
+        keep = int(world.keep_needed_map.get(source.id, 0))
         return max(0, int(source.ships) - keep)
 
     sources = [
@@ -6513,58 +6109,6 @@ def plan_moves(world, deadline=None):
             return emergency_heavy_source_left(source_id)
         return source_attack_left(source_id)
 
-    def source_can_be_emptied(src):
-        if src.id in world.comet_ids and world.comet_life(src.id) <= COMET_EVAC_LIFE_TURNS:
-            return True
-        fall_turn = world.fall_turn_map.get(src.id)
-        return (
-            fall_turn is not None
-            and fall_turn <= DOOMED_EVAC_TURN_LIMIT
-            and (src.production >= CORE_PRODUCTION or is_defense_core_planet(src, world))
-        )
-
-    def core_source_post_send_keep(src):
-        if not is_defense_core_planet(src, world) or source_can_be_emptied(src):
-            return 0
-        keep = max(
-            int(policy["reserve"].get(src.id, 0)),
-            core_passive_keep(src, world),
-        )
-        severe_deficit = (
-            world.enemy_prod >= world.my_prod + CORE_POST_SEND_SEVERE_PROD_GAP
-            or world.my_total < world.max_enemy_strength * CORE_POST_SEND_SEVERE_TOTAL_RATIO
-        )
-        if severe_deficit:
-            severe_keep = max(
-                int(int(src.ships) * CORE_POST_SEND_SEVERE_KEEP_FRACTION),
-                int(policy["reserve"].get(src.id, 0))
-                + CORE_POST_SEND_SEVERE_KEEP_BASE
-                + int(src.production) * CORE_POST_SEND_SEVERE_KEEP_PROD_WEIGHT,
-            )
-            keep = max(keep, severe_keep)
-        return min(int(src.ships), int(keep))
-
-    def source_safe_send_cap(src, cap):
-        cap = max(0, int(cap))
-        keep = core_source_post_send_keep(src)
-        if keep <= 0:
-            return cap
-        safe_cap = max(0, source_inventory_left(src.id) - keep)
-        if safe_cap < cap:
-            debug_count(
-                "source_hold_cap",
-                [
-                    src.id,
-                    int(cap),
-                    int(safe_cap),
-                    int(keep),
-                    int(src.ships),
-                    int(world.my_prod),
-                    int(world.enemy_prod),
-                ],
-            )
-        return min(cap, safe_cap)
-
     def append_move(src_id, angle, ships, target_id=None, force=False):
         inferred_target_id = target_id
         if inferred_target_id is None and not force:
@@ -6730,7 +6274,6 @@ def plan_moves(world, deadline=None):
                 keep = max(base_keep, int(int(src.ships) * BOXED_BREAKOUT_KEEP_FRACTION))
                 keep = max(keep, int(policy["reserve"].get(src.id, 0)))
             cap = max(0, inventory_left - keep)
-            cap = source_safe_send_cap(src, cap)
             if cap < BOXED_BREAKOUT_MIN_SOURCE:
                 debug_count("boxed_cap_small", [src.id, int(src.ships), int(keep), int(cap), fall_turn])
                 continue

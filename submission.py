@@ -35,6 +35,7 @@ OPENING_ROUTE_GUARD_ALWAYS = False
 OPENING_META_ENABLED = False
 ORBIT_LOG_PREFIX = "OWLOG "
 ORBIT_LOG_SAMPLE_LIMIT = 4
+ORBIT_TIMING_LIMIT = 24
 PROFILE_SIGNATURE = None
 PROFILE_EDGE_AIM = False
 PROFILE_DELAYED_SNIPE = False
@@ -46,6 +47,52 @@ PROFILE_ARCHETYPE = "baseline"
 PROFILE_HOME_IDS = ()
 PROFILE_LAST_OWNERS = {}
 PROFILE_CAPTURED_AT = {}
+
+
+def _truthy_env(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return bool(default)
+    return value.strip().lower() not in ("0", "false", "off", "no")
+
+
+def timing_add(world, name, elapsed_ms):
+    if world is None or not getattr(world, "timing_enabled", False):
+        return
+    records = getattr(world, "timing_records", None)
+    if records is None:
+        records = {}
+        world.timing_records = records
+    total_ms, count = records.get(name, (0.0, 0))
+    records[name] = (total_ms + float(elapsed_ms), count + 1)
+
+
+def timed_call(world, name, fn, *args, **kwargs):
+    if world is None or not getattr(world, "timing_enabled", False):
+        return fn(*args, **kwargs)
+    started = time.perf_counter()
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        timing_add(world, name, (time.perf_counter() - started) * 1000.0)
+
+
+def timing_rows(world, limit=ORBIT_TIMING_LIMIT):
+    records = getattr(world, "timing_records", None) or {}
+    rows = []
+    for name, (total_ms, count) in records.items():
+        if count <= 0:
+            continue
+        rows.append(
+            [
+                name,
+                round(float(total_ms), 3),
+                int(count),
+                round(float(total_ms) / max(1, int(count)), 4),
+            ]
+        )
+    rows.sort(key=lambda row: (-row[1], row[0]))
+    return rows[:limit]
 
 EARLY_TURN_LIMIT = 40
 OPENING_TURN_LIMIT = 80
@@ -362,7 +409,7 @@ DOOMED_EVAC_TURN_LIMIT = 24
 DOOMED_MIN_SHIPS = 8
 DOOMED_CORE_THREAT_HORIZON = 5
 
-SOFT_ACT_DEADLINE = 0.82
+SOFT_ACT_DEADLINE = 2.0
 HEAVY_PHASE_MIN_TIME = 0.16
 OPTIONAL_PHASE_MIN_TIME = 0.08
 HEAVY_ROUTE_PLANET_LIMIT = 32
@@ -1353,6 +1400,11 @@ class WorldModel:
         self.is_late = self.remaining_steps < LATE_REMAINING_TURNS
         self.is_very_late = self.remaining_steps < VERY_LATE_REMAINING_TURNS
         self.is_four_player = self.num_players >= 4
+        self.timing_enabled = _truthy_env(
+            "ORBIT_TIMING",
+            default=_truthy_env("ORBIT_LOG", default=True),
+        )
+        self.timing_records = {}
 
         self.owner_strength = defaultdict(int)
         self.owner_production = defaultdict(int)
@@ -1457,61 +1509,71 @@ class WorldModel:
         return max(0, int(self.planet_by_id[source_id].ships) - spent_total[source_id])
 
     def route_hits_target_first(self, src, target, angle, path_target_x, path_target_y):
-        start_x, start_y = launch_point(src.x, src.y, src.radius, angle)
-        target_hit = ray_circle_hit_distance(
-            start_x,
-            start_y,
-            angle,
-            path_target_x,
-            path_target_y,
-            target.radius,
-        )
-        if target_hit is None:
-            return False
-
-        for other in self.planets:
-            if other.id in (src.id, target.id):
-                continue
-            hit = ray_circle_hit_distance(
+        started = time.perf_counter() if self.timing_enabled else None
+        try:
+            start_x, start_y = launch_point(src.x, src.y, src.radius, angle)
+            target_hit = ray_circle_hit_distance(
                 start_x,
                 start_y,
                 angle,
-                other.x,
-                other.y,
-                other.radius,
+                path_target_x,
+                path_target_y,
+                target.radius,
             )
-            if (
-                hit is not None
-                and hit + PATH_BLOCKER_EPSILON < target_hit
-                and self.is_opening
-                and (OPENING_ROUTE_GUARD_ENABLED or poor_opening_target(other, self))
-            ):
+            if target_hit is None:
                 return False
-        return True
+
+            for other in self.planets:
+                if other.id in (src.id, target.id):
+                    continue
+                hit = ray_circle_hit_distance(
+                    start_x,
+                    start_y,
+                    angle,
+                    other.x,
+                    other.y,
+                    other.radius,
+                )
+                if (
+                    hit is not None
+                    and hit + PATH_BLOCKER_EPSILON < target_hit
+                    and self.is_opening
+                    and (OPENING_ROUTE_GUARD_ENABLED or poor_opening_target(other, self))
+                ):
+                    return False
+            return True
+        finally:
+            if started is not None:
+                timing_add(self, "fn.route_hits_target_first", (time.perf_counter() - started) * 1000.0)
 
     def plan_shot(self, src_id, target_id, ships):
-        ships = int(ships)
-        key = (src_id, target_id, ships)
-        cached = self.shot_cache.get(key)
-        if key in self.shot_cache:
-            return cached
-        src = self.planet_by_id[src_id]
-        target = self.planet_by_id[target_id]
-        result = aim_with_prediction(
-            src,
-            target,
-            ships,
-            self.initial_by_id,
-            self.ang_vel,
-            self.comets,
-            self.comet_ids,
-        )
-        if result is not None:
-            angle, _, path_target_x, path_target_y = result
-            if not self.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
-                result = None
-        self.shot_cache[key] = result
-        return result
+        started = time.perf_counter() if self.timing_enabled else None
+        try:
+            ships = int(ships)
+            key = (src_id, target_id, ships)
+            cached = self.shot_cache.get(key)
+            if key in self.shot_cache:
+                return cached
+            src = self.planet_by_id[src_id]
+            target = self.planet_by_id[target_id]
+            result = aim_with_prediction(
+                src,
+                target,
+                ships,
+                self.initial_by_id,
+                self.ang_vel,
+                self.comets,
+                self.comet_ids,
+            )
+            if result is not None:
+                angle, _, path_target_x, path_target_y = result
+                if not self.route_hits_target_first(src, target, angle, path_target_x, path_target_y):
+                    result = None
+            self.shot_cache[key] = result
+            return result
+        finally:
+            if started is not None:
+                timing_add(self, "fn.plan_shot", (time.perf_counter() - started) * 1000.0)
 
     def probe_ship_candidates(self, src_id, target_id, source_cap, hints=()):
         cache = getattr(self, "probe_candidate_cache", None)
@@ -1567,54 +1629,59 @@ class WorldModel:
         anchor_turn=None,
         max_anchor_diff=None,
     ):
-        cache_key = (
-            src_id,
-            target_id,
-            max(1, int(source_cap)),
-            tuple(hints),
-            min_turn,
-            max_turn,
-            anchor_turn,
-            max_anchor_diff,
-        )
-        cache = getattr(self, "best_probe_cache", None)
-        if cache is None:
-            cache = {}
-            self.best_probe_cache = cache
-        if cache_key in cache:
-            return cache[cache_key]
+        started = time.perf_counter() if self.timing_enabled else None
+        try:
+            cache_key = (
+                src_id,
+                target_id,
+                max(1, int(source_cap)),
+                tuple(hints),
+                min_turn,
+                max_turn,
+                anchor_turn,
+                max_anchor_diff,
+            )
+            cache = getattr(self, "best_probe_cache", None)
+            if cache is None:
+                cache = {}
+                self.best_probe_cache = cache
+            if cache_key in cache:
+                return cache[cache_key]
 
-        best = None
-        best_key = None
+            best = None
+            best_key = None
 
-        for ships in self.probe_ship_candidates(src_id, target_id, source_cap, hints=hints):
-            aim = self.plan_shot(src_id, target_id, ships)
-            if aim is None:
-                continue
+            for ships in self.probe_ship_candidates(src_id, target_id, source_cap, hints=hints):
+                aim = self.plan_shot(src_id, target_id, ships)
+                if aim is None:
+                    continue
 
-            angle, turns, dist_to_target, path_target = aim
-            if min_turn is not None and turns < min_turn:
-                continue
-            if max_turn is not None and turns > max_turn:
-                continue
-            if (
-                anchor_turn is not None
-                and max_anchor_diff is not None
-                and abs(turns - anchor_turn) > max_anchor_diff
-            ):
-                continue
+                angle, turns, dist_to_target, path_target = aim
+                if min_turn is not None and turns < min_turn:
+                    continue
+                if max_turn is not None and turns > max_turn:
+                    continue
+                if (
+                    anchor_turn is not None
+                    and max_anchor_diff is not None
+                    and abs(turns - anchor_turn) > max_anchor_diff
+                ):
+                    continue
 
-            if anchor_turn is None:
-                key = (turns, ships)
-            else:
-                key = (abs(turns - anchor_turn), turns, ships)
+                if anchor_turn is None:
+                    key = (turns, ships)
+                else:
+                    key = (abs(turns - anchor_turn), turns, ships)
 
-            if best_key is None or key < best_key:
-                best_key = key
-                best = (ships, (angle, turns, dist_to_target, path_target))
+                if best_key is None or key < best_key:
+                    best_key = key
+                    best = (ships, (angle, turns, dist_to_target, path_target))
 
-        cache[cache_key] = best
-        return best
+            cache[cache_key] = best
+            return best
+        finally:
+            if started is not None:
+                timing_add(self, "fn.best_probe_aim", (time.perf_counter() - started) * 1000.0)
 
     def reaction_times(self, target_id):
         cached = self.reaction_cache.get(target_id)
@@ -6295,50 +6362,91 @@ def plan_moves(world, deadline=None):
     def allow_optional_phase():
         return time_left() > OPTIONAL_PHASE_MIN_TIME
 
-    opening_meta_moves = build_opening_meta_moves(world, debug_set=debug_set)
+    opening_meta_moves = timed_call(
+        world,
+        "strategy.opening_meta",
+        build_opening_meta_moves,
+        world,
+        debug_set=debug_set,
+    )
     if opening_meta_moves is not None:
         debug_set("stage", "opening_meta")
         debug_set("opening_return", len(opening_meta_moves))
         return opening_meta_moves
 
-    opening_direct_moves = build_opening_direct_expand_moves(world)
+    opening_direct_moves = timed_call(
+        world,
+        "strategy.opening_direct",
+        build_opening_direct_expand_moves,
+        world,
+    )
     if opening_direct_moves is not None:
         debug_set("stage", "opening_direct")
         debug_set("opening_return", len(opening_direct_moves))
         return opening_direct_moves
-    opening_fast_expand_moves = build_opening_fast_expand_moves(world)
+    opening_fast_expand_moves = timed_call(
+        world,
+        "strategy.opening_fast_expand",
+        build_opening_fast_expand_moves,
+        world,
+    )
     if opening_fast_expand_moves is not None:
         debug_set("stage", "opening_fast_expand")
         debug_set("opening_return", len(opening_fast_expand_moves))
         return opening_fast_expand_moves
-    opening_anchor_moves = build_opening_anchor_moves(world)
+    opening_anchor_moves = timed_call(
+        world,
+        "strategy.opening_anchor",
+        build_opening_anchor_moves,
+        world,
+    )
     if opening_anchor_moves is not None:
         debug_set("stage", "opening_anchor")
         debug_set("opening_return", len(opening_anchor_moves))
         return opening_anchor_moves
-    opening_priority_moves = build_opening_priority_moves(world)
+    opening_priority_moves = timed_call(
+        world,
+        "strategy.opening_priority",
+        build_opening_priority_moves,
+        world,
+    )
     if opening_priority_moves is not None:
         debug_set("stage", "opening_priority")
         debug_set("opening_return", len(opening_priority_moves))
         return opening_priority_moves
-    opening_local_quality_moves = build_opening_local_quality_moves(world)
+    opening_local_quality_moves = timed_call(
+        world,
+        "strategy.opening_local_quality",
+        build_opening_local_quality_moves,
+        world,
+    )
     if opening_local_quality_moves is not None:
         debug_set("stage", "opening_local_quality")
         debug_set("opening_return", len(opening_local_quality_moves))
         return opening_local_quality_moves
-    opening_mainline_moves = build_opening_mainline_moves(world)
+    opening_mainline_moves = timed_call(
+        world,
+        "strategy.opening_mainline",
+        build_opening_mainline_moves,
+        world,
+    )
     if opening_mainline_moves is not None:
         debug_set("stage", "opening_mainline")
         debug_set("opening_return", len(opening_mainline_moves))
         return opening_mainline_moves
-    opening_heavy_prize_moves = build_opening_heavy_prize_moves(world)
+    opening_heavy_prize_moves = timed_call(
+        world,
+        "strategy.opening_heavy_prize",
+        build_opening_heavy_prize_moves,
+        world,
+    )
     if opening_heavy_prize_moves is not None:
         debug_set("stage", "opening_heavy_prize")
         debug_set("opening_return", len(opening_heavy_prize_moves))
         return opening_heavy_prize_moves
 
-    modes = build_modes(world)
-    policy = build_policy_state(world, deadline=deadline)
+    modes = timed_call(world, "phase.build_modes", build_modes, world)
+    policy = timed_call(world, "phase.build_policy_state", build_policy_state, world, deadline=deadline)
     debug_set("stage", "policy")
     debug_set(
         "budget",
@@ -6362,7 +6470,13 @@ def plan_moves(world, deadline=None):
         ],
     )
     policy["predicted_enemy_arrivals"] = (
-        predict_enemy_arrivals(world, deadline=deadline)
+        timed_call(
+            world,
+            "phase.predict_enemy_arrivals",
+            predict_enemy_arrivals,
+            world,
+            deadline=deadline,
+        )
         if allow_heavy_phase()
         else {}
     )
@@ -9139,7 +9253,7 @@ def build_world(obs):
 
 
 def orbit_log_enabled(step):
-    mode = os.environ.get("ORBIT_LOG", "0").strip().lower()
+    mode = os.environ.get("ORBIT_LOG", "1").strip().lower()
     if mode in ("0", "false", "off", "no"):
         return False
     try:
@@ -9375,6 +9489,7 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
             "soft_ms": round(float((soft_budget or 0.0) * 1000.0), 2),
             "over": _read(obs, "remainingOverageTime", None) if obs is not None else None,
             "empty": classify_empty_action(world, elapsed_ms, soft_budget) if not actions else "",
+            "timing": timing_rows(world),
             "dbg": getattr(world, "debug_info", {}),
         }
         print(
@@ -9398,16 +9513,23 @@ def log_agent_turn(world, actions, elapsed_ms, obs=None, config=None, soft_budge
 
 def agent(obs, config=None):
     start_time = time.perf_counter()
+    phase_start = time.perf_counter()
     configure_strategy_profile(obs)
+    configure_ms = (time.perf_counter() - phase_start) * 1000.0
+    phase_start = time.perf_counter()
     world = build_world(obs)
+    timing_add(world, "phase.configure_strategy_profile", configure_ms)
+    timing_add(world, "phase.build_world", (time.perf_counter() - phase_start) * 1000.0)
     if not world.my_planets:
         actions = []
         log_agent_turn(world, actions, (time.perf_counter() - start_time) * 1000.0, obs=obs, config=config, soft_budget=0.0)
         return actions
-    act_timeout = _read(config, "actTimeout", 1.0) if config is not None else 1.0
-    soft_budget = min(SOFT_ACT_DEADLINE, max(0.55, act_timeout * 0.82))
+    act_timeout = _read(config, "actTimeout", SOFT_ACT_DEADLINE) if config is not None else SOFT_ACT_DEADLINE
+    soft_budget = min(SOFT_ACT_DEADLINE, max(0.55, act_timeout))
     deadline = None if os.environ.get("ORBIT_NO_DEADLINE") == "1" else start_time + soft_budget
+    phase_start = time.perf_counter()
     actions = plan_moves(world, deadline=deadline)
+    timing_add(world, "phase.plan_moves", (time.perf_counter() - phase_start) * 1000.0)
     log_agent_turn(world, actions, (time.perf_counter() - start_time) * 1000.0, obs=obs, config=config, soft_budget=soft_budget)
     return actions
 

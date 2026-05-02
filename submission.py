@@ -259,19 +259,15 @@ REAR_MAX_TRAVEL_TURNS = 40
 
 PARTIAL_SOURCE_MIN_SHIPS = 6
 MULTI_SOURCE_TOP_K = 5
-MULTI_SOURCE_ETA_TOLERANCE = 3
 MULTI_SOURCE_PLAN_PENALTY = 0.97
-HOSTILE_SWARM_ETA_TOLERANCE = 2
 ANCHORED_SWARM_ENABLED = True
 ANCHORED_SWARM_MAX_SOURCES = 5
 ANCHORED_SWARM_MAX_ANCHORS = 4
-ANCHORED_SWARM_EXTRA_TOLERANCE = 2
 ANCHORED_SWARM_SCORE_MULT = 0.88
 ANCHORED_SWARM_MAX_OVERCOMMIT_RATIO = 1.75
 ANCHORED_SWARM_MAX_OVERCOMMIT_FLAT = 24
 THREE_SOURCE_SWARM_ENABLED = True
 THREE_SOURCE_MIN_TARGET_SHIPS = 20
-THREE_SOURCE_ETA_TOLERANCE = 2
 THREE_SOURCE_PLAN_PENALTY = 0.93
 HEAVY_ASSAULT_ENABLED = True
 HEAVY_ASSAULT_START_STEP = 45
@@ -279,7 +275,6 @@ HEAVY_ASSAULT_MIN_TOTAL = 60
 HEAVY_ASSAULT_MIN_SOURCE_SHIPS = 18
 HEAVY_ASSAULT_MAX_SOURCES = 5
 HEAVY_ASSAULT_MAX_OPTIONS = 3
-HEAVY_ASSAULT_ETA_TOLERANCE = 4
 HEAVY_ASSAULT_CLUSTER_RADIUS = 20.0
 HEAVY_ASSAULT_CLUSTER_PROD_WEIGHT = 0.45
 HEAVY_ASSAULT_OVERKILL = 18
@@ -315,8 +310,6 @@ BEHIND_HOSTILE_BREAK_MIN_SEND = 12
 BEHIND_HOSTILE_BREAK_CORE_MIN_SEND = 16
 BEHIND_HOSTILE_BREAK_OWNER_PROD_GAP = 8
 BEHIND_HOSTILE_BREAK_TOTAL_RATIO = 0.82
-BEHIND_SWARM_ETA_BONUS = 1
-BEHIND_HOSTILE_SWARM_ETA_BONUS = 1
 LEADER_SUPPRESSION_START_STEP = 20
 LEADER_SUPPRESSION_PROD_GAP = 2
 LEADER_SUPPRESSION_STRENGTH_RATIO = 0.95
@@ -329,7 +322,6 @@ WAIT_STRIKE_DELAYS = (0, 2, 4, 6)
 WAIT_STRIKE_MAX_TARGETS = 6
 
 FOUR_SOURCE_SWARM_ENABLED = True
-FOUR_SOURCE_ETA_TOLERANCE = 2
 FOUR_SOURCE_MIN_TARGET_SHIPS = 40
 FOUR_SOURCE_PLAN_PENALTY = 0.91
 
@@ -586,7 +578,6 @@ OPENING_FAST_EXPAND_SWARM_MIN_TARGET_PROD = 3
 OPENING_FAST_EXPAND_SWARM_MAX_TARGET_SHIPS = 30
 OPENING_FAST_EXPAND_SWARM_MAX_DIST = 36.0
 OPENING_FAST_EXPAND_SWARM_MAX_TURNS = 22
-OPENING_FAST_EXPAND_SWARM_ETA_TOLERANCE = 4
 OPENING_FAST_EXPAND_SWARM_OVERKILL = 2
 OPENING_LOCAL_QUALITY_ENABLED = True
 OPENING_LOCAL_QUALITY_TURN_LIMIT = 34
@@ -2672,8 +2663,6 @@ def opening_fast_expand_swarm_moves(world):
         for size in range(2, min(len(options), OPENING_FAST_EXPAND_SWARM_MAX_SOURCES) + 1):
             group = options[:size]
             turns = [item[0] for item in group]
-            if max(turns) - min(turns) > OPENING_FAST_EXPAND_SWARM_ETA_TOLERANCE:
-                continue
             joint_turn = max(turns)
             total_available = sum(item[3] for item in group)
             need = world.min_ships_to_own_at(
@@ -4036,28 +4025,6 @@ def build_opening_meta_moves(world, debug_set=None):
     return best_moves
 
 
-def swarm_eta_tolerance(options, target, world):
-    tolerance = MULTI_SOURCE_ETA_TOLERANCE
-    if len(options) >= 3:
-        tolerance = THREE_SOURCE_ETA_TOLERANCE
-    if target.owner not in (-1, world.player):
-        tolerance = HOSTILE_SWARM_ETA_TOLERANCE
-
-    max_enemy_prod = max(
-        (
-            int(prod)
-            for owner, prod in world.owner_production.items()
-            if owner not in (-1, world.player)
-        ),
-        default=0,
-    )
-    if world.my_prod + BEHIND_HOSTILE_BREAK_OWNER_PROD_GAP < max_enemy_prod:
-        tolerance += BEHIND_SWARM_ETA_BONUS
-        if target.owner not in (-1, world.player):
-            tolerance += BEHIND_HOSTILE_SWARM_ETA_BONUS
-    return tolerance
-
-
 def anchored_swarm_worth_trying(target, world, modes):
     if target.owner == world.player or world.is_very_late:
         return False
@@ -4603,9 +4570,7 @@ def target_value(target, arrival_turns, mission, world, modes, policy):
     if target.id in world.comet_ids:
         value *= COMET_VALUE_MULT
 
-    if mission == "snipe":
-        value *= SNIPE_VALUE_MULT
-    elif mission == "swarm":
+    if mission == "swarm":
         value *= SWARM_VALUE_MULT
     elif mission == "reinforce":
         value *= REINFORCE_VALUE_MULT
@@ -4725,9 +4690,7 @@ def apply_score_modifiers(base_score, target, mission, world):
         and not world.is_static(target.id)
     ):
         score *= DENSE_ROTATING_NEUTRAL_SCORE_MULT
-    if mission == "snipe":
-        score *= SNIPE_SCORE_MULT
-    elif mission == "swarm":
+    if mission == "swarm":
         score *= SWARM_SCORE_MULT
     elif mission == "crash_exploit":
         score *= CRASH_EXPLOIT_SCORE_MULT
@@ -4754,11 +4717,7 @@ def settle_plan(
 
     seed_hint = max(1, min(src_cap, int(send_guess)))
     eval_turn_fn = eval_turn_fn or (lambda turns: turns)
-    anchor_tolerance = (
-        anchor_tolerance
-        if anchor_tolerance is not None
-        else (1 if mission == "snipe" else None)
-    )
+    anchor_tolerance = anchor_tolerance if anchor_tolerance is not None else None
     tested = {}
     tested_order = []
 
@@ -4794,7 +4753,7 @@ def settle_plan(
             tested[send] = None
             return None
 
-        if mission in ("snipe", "crash_exploit"):
+        if mission == "crash_exploit":
             desired = need
         elif mission == "rescue":
             desired = min(
@@ -4868,9 +4827,6 @@ def settle_plan(
     candidate_sends = sorted(
         [send for send in tested_order if tested.get(send) is not None],
         key=lambda send: (
-            0
-            if mission != "snipe" or anchor_turn is None
-            else abs(tested[send][1] - anchor_turn),
             abs(send - seed_hint),
             tested[send][1],
             send,
@@ -5149,103 +5105,6 @@ def settle_reinforce_plan(
         return angle, turns, eval_turn, need, actual_send
 
     return None
-
-
-def build_snipe_mission(src, target, src_available, world, planned_commitments, modes, policy):
-    if target.owner != -1:
-        return None
-
-    enemy_etas = sorted(
-        {
-            int(math.ceil(eta))
-            for eta, owner, ships in world.arrivals_by_planet.get(target.id, [])
-            if owner not in (-1, world.player) and ships > 0
-        }
-    )
-    if not enemy_etas:
-        return None
-
-    best = None
-    for enemy_eta in enemy_etas[:3]:
-        delays = WAIT_STRIKE_DELAYS if WAIT_STRIKE_ENABLED and DELAYED_SNIPE_ENABLED else (0,)
-        for delay in delays:
-            desired_turn = enemy_eta + delay
-            seeded = world.best_probe_aim(
-                src.id,
-                target.id,
-                src_available,
-                hints=(int(target.ships) + 1, int(target.ships) + 8),
-                anchor_turn=desired_turn,
-                max_anchor_diff=1,
-            )
-            if seeded is None:
-                continue
-
-            probe, rough = seeded
-            sync_turn = max(rough[1], desired_turn)
-            if target.id in world.comet_ids:
-                life = world.comet_life(target.id)
-                if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
-                    continue
-
-            plan = settle_plan(
-                src,
-                target,
-                src_available,
-                probe,
-                world,
-                planned_commitments,
-                modes,
-                policy,
-                mission="snipe",
-                eval_turn_fn=lambda turns, desired_turn=desired_turn: max(turns, desired_turn),
-                anchor_turn=desired_turn,
-            )
-            if plan is None:
-                continue
-
-            angle, turns, sync_turn, need, send_pref = plan
-            if opening_filter(target, turns, need, src_available, world, policy):
-                continue
-            if target.id in world.comet_ids:
-                life = world.comet_life(target.id)
-                if sync_turn >= life or sync_turn > COMET_MAX_CHASE_TURNS:
-                    continue
-
-            value = target_value(target, sync_turn, "snipe", world, modes, policy)
-            if value <= 0:
-                continue
-
-            score = apply_score_modifiers(
-                value / (send_pref + sync_turn * SNIPE_COST_TURN_WEIGHT + 1.0),
-                target,
-                "snipe",
-                world,
-            )
-            if delay:
-                score *= 1.04
-            option = ShotOption(
-                score=score,
-                src_id=src.id,
-                target_id=target.id,
-                angle=angle,
-                turns=turns,
-                needed=need,
-                send_cap=send_pref,
-                mission="snipe",
-                anchor_turn=desired_turn,
-            )
-            mission_obj = Mission(
-                kind="snipe",
-                score=score,
-                target_id=target.id,
-                turns=sync_turn,
-                options=[option],
-            )
-            if best is None or mission_obj.score > best.score:
-                best = mission_obj
-
-    return best
 
 
 def build_rescue_missions(world, policy, planned_commitments, modes):
@@ -5703,8 +5562,6 @@ def build_heavy_assault_missions(world, policy, planned_commitments, modes, atta
                 continue
             for combo in combinations(top_options, size):
                 turns = [option.turns for option in combo]
-                if max(turns) - min(turns) > HEAVY_ASSAULT_ETA_TOLERANCE:
-                    continue
                 joint_turn = max(turns)
                 total_cap = sum(option.send_cap for option in combo)
                 if total_cap < min_total_required:
@@ -6077,7 +5934,6 @@ def plan_moves(world, deadline=None):
         else {}
     )
     planned_commitments = defaultdict(list)
-    source_options_by_target = defaultdict(list)
     missions = []
     moves = []
     spent_total = defaultdict(int)
@@ -6220,7 +6076,6 @@ def plan_moves(world, deadline=None):
             counts.get("partial_option", 0) > 0
             and (
                 not world.debug_info.get("mission_count", 0)
-                or counts.get("multi_eta_fail", 0) > 0
                 or counts.get("multi_missing_fail", 0) > 0
             )
         )
@@ -6435,11 +6290,7 @@ def plan_moves(world, deadline=None):
         ):
             return 0
         counts = world.debug_info.get("counts", {})
-        if not (
-            counts.get("partial_option", 0) > 0
-            or counts.get("multi_pair_eta_fail", 0) > 0
-            or counts.get("multi_eta_fail", 0) > 0
-        ):
+        if counts.get("partial_option", 0) <= 0:
             return 0
 
         def followup_feasible(src, target, turns, send):
@@ -6860,18 +6711,7 @@ def plan_moves(world, deadline=None):
                     planned_commitments[target.id].append((turns, world.player, int(actual)))
                     break
 
-    if allow_heavy_phase():
-        missions.extend(
-            build_reinforce_missions(
-                world,
-                policy,
-                planned_commitments,
-                modes,
-                source_attack_left,
-            )
-        )
     missions.extend(build_rescue_missions(world, policy, planned_commitments, modes))
-    missions.extend(build_recapture_missions(world, policy, planned_commitments, modes))
 
     # Only build candidates after solving an intercept so timing decisions come
     # from a real route.
@@ -6928,51 +6768,6 @@ def plan_moves(world, deadline=None):
             if opening_filter(target, rough_turns, global_needed, src_available, world, policy):
                 debug_count("opening_filter", [src.id, target.id, int(target.production), int(global_needed), int(src_available)])
                 continue
-
-            partial_send_cap = min(
-                src_available,
-                preferred_send(
-                    target,
-                    global_needed,
-                    rough_turns,
-                    src_available,
-                    world,
-                    modes,
-                    policy,
-                ),
-            )
-            if partial_send_cap >= PARTIAL_SOURCE_MIN_SHIPS:
-                partial_seed = world.best_probe_aim(
-                    src.id,
-                    target.id,
-                    partial_send_cap,
-                    hints=(partial_send_cap, global_needed, int(target.ships) + 1),
-                )
-                if partial_seed is not None:
-                    _, partial_aim = partial_seed
-                    p_angle, p_turns, _, _ = partial_aim
-                    if time_filters_pass(target, p_turns, global_needed, src_available):
-                        partial_value = target_value(target, p_turns, "swarm", world, modes, policy)
-                        if partial_value > 0:
-                            partial_score = apply_score_modifiers(
-                                partial_value / (partial_send_cap + p_turns * ATTACK_COST_TURN_WEIGHT + 1.0),
-                                target,
-                                "swarm",
-                                world,
-                            )
-                            source_options_by_target[target.id].append(
-                                ShotOption(
-                                    score=partial_score,
-                                    src_id=src.id,
-                                    target_id=target.id,
-                                    angle=p_angle,
-                                    turns=p_turns,
-                                    needed=global_needed,
-                                    send_cap=partial_send_cap,
-                                    mission="swarm",
-                                )
-                            )
-                            debug_count("partial_option", [src.id, target.id, int(target.production), int(partial_send_cap), int(p_turns)])
 
             if global_needed <= src_available:
                 send_guess = preferred_send(
@@ -7045,301 +6840,6 @@ def plan_moves(world, deadline=None):
                         )
                     )
 
-            snipe = build_snipe_mission(src, target, src_available, world, planned_commitments, modes, policy)
-            if snipe is not None:
-                missions.append(snipe)
-
-    # Allow small synchronized two-source finishes when one source is not
-    # enough on its own.
-    for target_id, options in source_options_by_target.items():
-        if expired():
-            return finalize_moves()
-        if len(options) < 2:
-            continue
-
-        target = world.planet_by_id[target_id]
-        top_options = sorted(options, key=lambda item: -item.score)[:MULTI_SOURCE_TOP_K]
-        for i in range(len(top_options)):
-            for j in range(i + 1, len(top_options)):
-                first = top_options[i]
-                second = top_options[j]
-                if first.src_id == second.src_id:
-                    debug_count("multi_pair_same_source", [target_id, first.src_id])
-                    continue
-                pair_tol = swarm_eta_tolerance((first, second), target, world)
-                if abs(first.turns - second.turns) > pair_tol:
-                    debug_count("multi_pair_eta_fail", [target_id, int(abs(first.turns - second.turns)), int(pair_tol)])
-                    continue
-
-                joint_turn = max(first.turns, second.turns)
-                total_cap = first.send_cap + second.send_cap
-                need = world.min_ships_to_own_at(
-                    target_id,
-                    joint_turn,
-                    world.player,
-                    planned_commitments=planned_commitments,
-                    upper_bound=total_cap,
-                )
-                if need <= 0:
-                    debug_count("multi_pair_no_need", [target_id, int(joint_turn), int(total_cap)])
-                    continue
-                if first.send_cap >= need or second.send_cap >= need:
-                    debug_count("multi_pair_single_covers", [target_id, int(need), int(first.send_cap), int(second.send_cap)])
-                    continue
-                if total_cap < need:
-                    debug_count("multi_pair_total_fail", [target_id, int(need), int(total_cap)])
-                    continue
-
-                value = target_value(target, joint_turn, "swarm", world, modes, policy)
-                if value <= 0:
-                    debug_count("multi_pair_value_fail", [target_id, int(joint_turn)])
-                    continue
-
-                pair_score = apply_score_modifiers(
-                    value / (need + joint_turn * ATTACK_COST_TURN_WEIGHT + 1.0),
-                    target,
-                    "swarm",
-                    world,
-                )
-                pair_score *= MULTI_SOURCE_PLAN_PENALTY
-                missions.append(
-                    Mission(
-                        kind="swarm",
-                        score=pair_score,
-                        target_id=target_id,
-                        turns=joint_turn,
-                        options=[first, second],
-                    )
-                )
-
-        if (
-            THREE_SOURCE_SWARM_ENABLED
-            and allow_heavy_phase()
-            and target.owner not in (-1, world.player)
-            and int(target.ships) >= THREE_SOURCE_MIN_TARGET_SHIPS
-            and len(top_options) >= 3
-        ):
-            for i in range(len(top_options)):
-                for j in range(i + 1, len(top_options)):
-                    for k in range(j + 1, len(top_options)):
-                        if expired():
-                            return finalize_moves()
-                        trio = [top_options[i], top_options[j], top_options[k]]
-                        if len({option.src_id for option in trio}) < 3:
-                            debug_count("multi_trio_same_source", [target_id])
-                            continue
-                        trio_tol = swarm_eta_tolerance(tuple(trio), target, world)
-                        turns = [option.turns for option in trio]
-                        if max(turns) - min(turns) > trio_tol:
-                            debug_count("multi_trio_eta_fail", [target_id, int(max(turns) - min(turns)), int(trio_tol)])
-                            continue
-
-                        joint_turn = max(turns)
-                        total_cap = sum(option.send_cap for option in trio)
-                        need = world.min_ships_to_own_at(
-                            target_id,
-                            joint_turn,
-                            world.player,
-                            planned_commitments=planned_commitments,
-                            upper_bound=total_cap,
-                        )
-                        if need <= 0:
-                            debug_count("multi_trio_no_need", [target_id, int(joint_turn), int(total_cap)])
-                            continue
-                        if total_cap < need:
-                            debug_count("multi_trio_total_fail", [target_id, int(need), int(total_cap)])
-                            continue
-                        if any(
-                            trio[a].send_cap + trio[b].send_cap >= need
-                            for a in range(3)
-                            for b in range(a + 1, 3)
-                        ):
-                            debug_count("multi_trio_pair_covers", [target_id, int(need), int(total_cap)])
-                            continue
-
-                        value = target_value(target, joint_turn, "swarm", world, modes, policy)
-                        if value <= 0:
-                            debug_count("multi_trio_value_fail", [target_id, int(joint_turn)])
-                            continue
-
-                        trio_score = apply_score_modifiers(
-                            value / (need + joint_turn * ATTACK_COST_TURN_WEIGHT + 1.0),
-                            target,
-                            "swarm",
-                            world,
-                        )
-                        trio_score *= THREE_SOURCE_PLAN_PENALTY
-                        missions.append(
-                            Mission(
-                                kind="swarm",
-                                score=trio_score,
-                                target_id=target_id,
-                                turns=joint_turn,
-                                options=trio,
-                            )
-                        )
-
-        if (
-            ANCHORED_SWARM_ENABLED
-            and allow_heavy_phase()
-            and len(options) >= 2
-            and anchored_swarm_worth_trying(target, world, modes)
-        ):
-            unique_options = []
-            seen_sources = set()
-            for option in sorted(options, key=lambda item: (-item.score, item.turns, item.src_id)):
-                if option.src_id in seen_sources:
-                    continue
-                if source_attack_left(option.src_id) < PARTIAL_SOURCE_MIN_SHIPS:
-                    continue
-                unique_options.append(option)
-                seen_sources.add(option.src_id)
-                if len(unique_options) >= ANCHORED_SWARM_MAX_SOURCES:
-                    break
-
-            if len(unique_options) >= 2:
-                option_turns = sorted(option.turns for option in unique_options)
-                median_turn = option_turns[len(option_turns) // 2]
-                anchor_turns = sorted(
-                    {option.turns for option in unique_options},
-                    key=lambda turn: (abs(turn - median_turn), turn),
-                )[:ANCHORED_SWARM_MAX_ANCHORS]
-
-                for anchor_turn in anchor_turns:
-                    if expired():
-                        return finalize_moves()
-                    anchor_tol = (
-                        swarm_eta_tolerance(unique_options, target, world)
-                        + ANCHORED_SWARM_EXTRA_TOLERANCE
-                    )
-                    anchored_options = []
-                    for option in unique_options:
-                        left = source_attack_left(option.src_id)
-                        if left < PARTIAL_SOURCE_MIN_SHIPS:
-                            continue
-                        src = world.planet_by_id[option.src_id]
-                        seeded = world.best_probe_aim(
-                            src.id,
-                            target.id,
-                            left,
-                            hints=(option.send_cap, option.needed, int(target.ships) + 1),
-                            anchor_turn=anchor_turn,
-                            max_anchor_diff=anchor_tol,
-                        )
-                        if seeded is None:
-                            debug_count("anchored_no_aim", [target_id, option.src_id, int(anchor_turn)])
-                            continue
-                        send, aim = seeded
-                        angle, turns, _, _ = aim
-                        if send < PARTIAL_SOURCE_MIN_SHIPS:
-                            debug_count("anchored_small_send", [target_id, option.src_id, int(send)])
-                            continue
-                        if not time_filters_pass(target, turns, option.needed, left):
-                            debug_count("anchored_time_filter", [target_id, option.src_id, int(turns)])
-                            continue
-                        value = target_value(target, turns, "swarm", world, modes, policy)
-                        if value <= 0:
-                            debug_count("anchored_value_fail", [target_id, option.src_id, int(turns)])
-                            continue
-                        score = apply_score_modifiers(
-                            value / (send + turns * ATTACK_COST_TURN_WEIGHT + 1.0),
-                            target,
-                            "swarm",
-                            world,
-                        )
-                        anchored_options.append(
-                            ShotOption(
-                                score=score,
-                                src_id=option.src_id,
-                                target_id=target_id,
-                                angle=angle,
-                                turns=turns,
-                                needed=option.needed,
-                                send_cap=send,
-                                mission="anchored_swarm",
-                                anchor_turn=anchor_turn,
-                            )
-                        )
-
-                    anchored_options.sort(key=lambda item: (-item.score, item.turns, item.src_id))
-
-                    def add_anchored_combo(combo):
-                        joint_turn = max(option.turns for option in combo)
-                        total_send = sum(option.send_cap for option in combo)
-                        need = world.min_ships_to_own_at(
-                            target_id,
-                            joint_turn,
-                            world.player,
-                            planned_commitments=planned_commitments,
-                            upper_bound=total_send,
-                        )
-                        if need <= 0:
-                            debug_count("anchored_no_need", [target_id, int(joint_turn), int(total_send)])
-                            return
-                        if total_send < need:
-                            debug_count("anchored_total_fail", [target_id, int(need), int(total_send)])
-                            return
-                        overcommit_limit = max(
-                            int(need * ANCHORED_SWARM_MAX_OVERCOMMIT_RATIO),
-                            int(need + ANCHORED_SWARM_MAX_OVERCOMMIT_FLAT),
-                        )
-                        if total_send > overcommit_limit:
-                            debug_count("anchored_overcommit", [target_id, int(need), int(total_send)])
-                            return
-                        owner_after, _ = world.projected_state(
-                            target_id,
-                            joint_turn,
-                            planned_commitments=planned_commitments,
-                            extra_arrivals=[
-                                (option.turns, world.player, option.send_cap)
-                                for option in combo
-                            ],
-                        )
-                        if owner_after != world.player:
-                            debug_count("anchored_owner_fail", [target_id, int(joint_turn), int(total_send)])
-                            return
-                        value = target_value(target, joint_turn, "swarm", world, modes, policy)
-                        if value <= 0:
-                            debug_count("anchored_combo_value_fail", [target_id, int(joint_turn)])
-                            return
-                        score = apply_score_modifiers(
-                            value / (total_send + joint_turn * ATTACK_COST_TURN_WEIGHT + 1.0),
-                            target,
-                            "swarm",
-                            world,
-                        )
-                        score *= ANCHORED_SWARM_SCORE_MULT
-                        debug_count(
-                            "anchored_swarm_mission",
-                            [target_id, int(joint_turn), int(total_send), int(need), len(combo)],
-                        )
-                        missions.append(
-                            Mission(
-                                kind="anchored_swarm",
-                                score=score,
-                                target_id=target_id,
-                                turns=joint_turn,
-                                options=list(combo),
-                                min_total=total_send,
-                            )
-                        )
-
-                    for i in range(len(anchored_options)):
-                        for j in range(i + 1, len(anchored_options)):
-                            add_anchored_combo((anchored_options[i], anchored_options[j]))
-
-                    if len(anchored_options) >= 3 and target.owner not in (-1, world.player):
-                        for i in range(len(anchored_options)):
-                            for j in range(i + 1, len(anchored_options)):
-                                for k in range(j + 1, len(anchored_options)):
-                                    add_anchored_combo(
-                                        (
-                                            anchored_options[i],
-                                            anchored_options[j],
-                                            anchored_options[k],
-                                        )
-                                    )
-
     if allow_heavy_phase():
         missions.extend(build_crash_exploit_missions(world, policy, planned_commitments, modes))
         missions.extend(
@@ -7376,32 +6876,15 @@ def plan_moves(world, deadline=None):
             return finalize_moves()
         target = world.planet_by_id[mission.target_id]
 
-        if mission.kind in ("single", "snipe", "rescue", "recapture", "reinforce", "crash_exploit"):
+        if mission.kind in ("single", "rescue", "crash_exploit"):
             option = mission.options[0]
             src = world.planet_by_id[option.src_id]
-            if mission.kind == "reinforce":
-                left = min(
-                    source_attack_left(option.src_id),
-                    int(src.ships * REINFORCE_MAX_SOURCE_FRACTION),
-                )
-            else:
-                left = source_attack_left(option.src_id)
+            left = source_attack_left(option.src_id)
             if left <= 0:
                 debug_count("mission_source_empty", [mission.kind, option.src_id, mission.target_id])
                 continue
 
-            if mission.kind == "reinforce":
-                plan = settle_reinforce_plan(
-                    src,
-                    target,
-                    left,
-                    min(left, option.send_cap),
-                    world,
-                    planned_commitments,
-                    option.anchor_turn,
-                    mission.turns,
-                )
-            elif mission.kind == "rescue":
+            if mission.kind == "rescue":
                 plan = settle_plan(
                     src,
                     target,
@@ -7413,20 +6896,6 @@ def plan_moves(world, deadline=None):
                     policy,
                     mission="rescue",
                     eval_turn_fn=lambda _turns, hold_turn=mission.turns: hold_turn,
-                    anchor_turn=option.anchor_turn,
-                )
-            elif mission.kind == "snipe":
-                plan = settle_plan(
-                    src,
-                    target,
-                    left,
-                    min(left, option.send_cap),
-                    world,
-                    planned_commitments,
-                    modes,
-                    policy,
-                    mission="snipe",
-                    eval_turn_fn=lambda turns, enemy_eta=option.anchor_turn: max(turns, enemy_eta),
                     anchor_turn=option.anchor_turn,
                 )
             elif mission.kind == "crash_exploit":
@@ -7541,11 +7010,6 @@ def plan_moves(world, deadline=None):
             continue
 
         turns_only = [item[2] for item in reaimed]
-        eta_tol = swarm_eta_tolerance(mission.options, target, world)
-        if max(turns_only) - min(turns_only) > eta_tol:
-            debug_count("multi_eta_fail", [mission.kind, mission.target_id, int(max(turns_only) - min(turns_only))])
-            continue
-
         actual_joint_turn = max(turns_only)
         owner_after, _ = world.projected_state(
             target.id,
@@ -8946,8 +8410,6 @@ def classify_empty_action(world, elapsed_ms, soft_budget):
         if any(row[5] is not None and int(row[5]) <= DOOMED_EVAC_TURN_LIMIT for row in budget_rows):
             return "locked_under_attack"
         return "no_attack_budget"
-    if counts.get("multi_pair_eta_fail", 0) or counts.get("multi_trio_eta_fail", 0):
-        return "multi_eta_filtered"
     if counts.get("multi_pair_total_fail", 0) or counts.get("multi_trio_total_fail", 0):
         return "multi_not_enough_mass"
     if counts.get("partial_option", 0) and not debug.get("mission_count", 0):

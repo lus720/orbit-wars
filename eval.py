@@ -110,6 +110,57 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
+def iter_owlog_payloads(records):
+    for record_index, record in enumerate(records):
+        for stream_name in ("stdout", "stderr"):
+            for line in (record.get(stream_name) or "").splitlines():
+                if not line.startswith("OWLOG "):
+                    continue
+                raw_payload = line[len("OWLOG ") :]
+                try:
+                    payload = json.loads(raw_payload)
+                except json.JSONDecodeError as exc:
+                    payload = {
+                        "_parse_error": str(exc),
+                        "_raw": raw_payload,
+                    }
+                if isinstance(payload, dict):
+                    payload = dict(payload)
+                    payload["_record"] = record_index
+                    payload["_stream"] = stream_name
+                else:
+                    payload = {
+                        "payload": payload,
+                        "_record": record_index,
+                        "_stream": stream_name,
+                    }
+                yield payload
+
+
+def write_jsonl(path, rows):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
+            handle.write("\n")
+
+
+def write_capture_log(path, records):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record_index, record in enumerate(records):
+            for stream_name in ("stdout", "stderr"):
+                text = record.get(stream_name) or ""
+                if not text:
+                    continue
+                handle.write(f"--- record {record_index} {stream_name} ---\n")
+                handle.write(text)
+                if not text.endswith("\n"):
+                    handle.write("\n")
+
+
 def path_is_relative_to(path, root):
     try:
         Path(path).resolve().relative_to(Path(root).resolve())
@@ -425,6 +476,7 @@ def run_game(
 
     artifact_episode_path = None
     artifact_log_path = None
+    artifact_capture_path = None
     artifact_manifest_path = None
     should_save_artifacts = save_artifacts == "all" or (
         save_artifacts == "loss" and result == "LOSS"
@@ -433,10 +485,12 @@ def run_game(
         prefix = f"2p-seed{seed}-game{game_index + 1:02d}"
         artifact_root = Path(save_dir)
         artifact_episode_path = artifact_root / f"episode-{prefix}.json"
-        artifact_log_path = artifact_root / f"{prefix}-{my_slot}.json"
+        artifact_log_path = artifact_root / f"{prefix}-{my_slot}-owlog.jsonl"
+        artifact_capture_path = artifact_root / f"{prefix}-{my_slot}-capture.log"
         artifact_manifest_path = artifact_root / f"manifest-{prefix}.json"
         write_json(artifact_episode_path, episode_json)
-        write_json(artifact_log_path, my_recorder.records)
+        write_jsonl(artifact_log_path, iter_owlog_payloads(my_recorder.records))
+        write_capture_log(artifact_capture_path, my_recorder.records)
         write_json(artifact_manifest_path, match_metadata)
 
     return {
@@ -460,6 +514,7 @@ def run_game(
         "replay_path": str(replay_path) if replay_path is not None else None,
         "artifact_episode_path": str(artifact_episode_path) if artifact_episode_path is not None else None,
         "artifact_log_path": str(artifact_log_path) if artifact_log_path is not None else None,
+        "artifact_capture_path": str(artifact_capture_path) if artifact_capture_path is not None else None,
         "artifact_manifest_path": str(artifact_manifest_path) if artifact_manifest_path is not None else None,
         "steps": len(env.steps),
         "elapsed": elapsed,
@@ -700,6 +755,7 @@ def main():
                 f"time={result['elapsed']:.2f}s"
                 + (f" | replay={result['replay_path']}" if result.get("replay_path") else "")
                 + (f" | log={result['artifact_log_path']}" if result.get("artifact_log_path") else "")
+                + (f" | capture={result['artifact_capture_path']}" if result.get("artifact_capture_path") else "")
                 + (f" | manifest={result['artifact_manifest_path']}" if result.get("artifact_manifest_path") else ""),
                 flush=True,
             )
